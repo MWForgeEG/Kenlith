@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/MWForgeEG/Kenlith/security/advisories/new
+    about: Please report vulnerabilities privately. Do not open a public issue. See SECURITY.md.
+  - name: Security policy
+    url: https://github.com/MWForgeEG/Kenlith/blob/main/SECURITY.md
+    about: What counts as a vulnerability and how reports are handled.

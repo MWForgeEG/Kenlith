@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in Kenlith does not work as described.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug.
+
+        **Security vulnerabilities do not belong here.** See [SECURITY.md](https://github.com/MWForgeEG/Kenlith/blob/main/SECURITY.md) and report them privately.
+
+        **Do not paste real credentials, tokens, account email addresses or private project content.** Use a synthetic demo project and made-up values. Cover any account details in screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: Kenlith version
+      description: Shown in the editor's Extensions view.
+      placeholder: "0.8.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: editor
+    attributes:
+      label: Editor
+      options:
+        - VS Code
+        - Antigravity IDE
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: editor-version
+    attributes:
+      label: Editor version and operating system
+      placeholder: "VS Code 1.143, Windows 11"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of steps, ideally with a small synthetic project.
+      placeholder: |
+        1. Open a folder with ...
+        2. Start a chat and send ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Include any error message shown in the chat or in a notification.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Model and Thinking level used, whether project sharing was on, screenshots with account details covered.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Before submitting
+      options:
+        - label: This report contains no real credentials, tokens, account email addresses or private project content.
+          required: true

@@ -1,0 +1,478 @@
+{
+  "name": "plan-chat-antigravity",
+  "displayName": "Kenlith",
+  "description": "An unofficial, local chat client for Antigravity that uses OpenAI's official Sign in with ChatGPT flow without an API key.",
+  "version": "0.8.0",
+  "publisher": "local-open-source",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.107.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "chatgpt",
+    "openai",
+    "antigravity",
+    "chat",
+    "oauth",
+    "kenlith"
+  ],
+  "main": "./src/extension.js",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:integration": "node test/integration/run.js",
+    "package": "node scripts/package-vsix.js"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Kenlith sends text you choose to OpenAI, so it runs only in workspaces you trust."
+    }
+  },
+  "activationEvents": [
+    "onView:planChat.sidebar",
+    "onView:planChat.account",
+    "onWebviewPanel:planChat.conversation",
+    "onCommand:planChat.open",
+    "onCommand:planChat.signIn",
+    "onCommand:planChat.signOut",
+    "onCommand:planChat.newChat",
+    "onCommand:planChat.showHistory",
+    "onCommand:planChat.showAllChats",
+    "onCommand:planChat.chooseProject",
+    "onCommand:planChat.moveToGeneral",
+    "onCommand:planChat.attachSelection",
+    "onCommand:planChat.searchChats"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "planChat.open",
+        "title": "Open Kenlith",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.signIn",
+        "title": "Continue with ChatGPT",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.signOut",
+        "title": "Sign Out",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.newChat",
+        "title": "New Chat",
+        "category": "Kenlith",
+        "icon": "$(add)"
+      },
+      {
+        "command": "planChat.showHistory",
+        "title": "Show Chat History",
+        "category": "Kenlith",
+        "icon": "$(history)"
+      },
+      {
+        "command": "planChat.showAllChats",
+        "title": "Show All Chats",
+        "category": "Kenlith",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "planChat.manageProjectSharing",
+        "title": "Manage Project Sharing",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.chooseProject",
+        "title": "Choose Project for Chats",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.moveToGeneral",
+        "title": "Move Chat to General",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.attachSelection",
+        "title": "Attach Selection to Kenlith",
+        "icon": "$(attach)"
+      },
+      {
+        "command": "planChat.newChatBeside",
+        "title": "New Chat to the Side",
+        "category": "Kenlith",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "planChat.searchChats",
+        "title": "Search Chats",
+        "category": "Kenlith",
+        "icon": "$(search)"
+      },
+      {
+        "command": "planChat.openChat",
+        "title": "Open Chat",
+        "category": "Kenlith",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "planChat.openChatBeside",
+        "title": "Open Chat to the Side",
+        "category": "Kenlith",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "planChat.renameChat",
+        "title": "Rename Chat…",
+        "category": "Kenlith",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "planChat.moveChatToGroup",
+        "title": "Move Chat to Group…",
+        "category": "Kenlith",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "planChat.removeFromGroup",
+        "title": "Remove Chat from Group",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.newGroup",
+        "title": "New Group…",
+        "category": "Kenlith",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "planChat.renameGroup",
+        "title": "Rename Group…",
+        "category": "Kenlith",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "planChat.removeGroup",
+        "title": "Remove Group…",
+        "category": "Kenlith",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "planChat.accountActions",
+        "title": "Account…",
+        "category": "Kenlith",
+        "icon": "$(account)"
+      },
+      {
+        "command": "planChat.manageUsage",
+        "title": "Manage Usage",
+        "category": "Kenlith",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "planChat.resumeUsage",
+        "title": "Resume Sending",
+        "category": "Kenlith"
+      },
+      {
+        "command": "planChat.setDefaultModel",
+        "title": "Choose Model for New Chats…",
+        "category": "Kenlith",
+        "icon": "$(symbol-misc)"
+      },
+      {
+        "command": "planChat.stopReply",
+        "title": "Stop Reply",
+        "category": "Kenlith",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "planChat.moveChatHere",
+        "title": "Move Chat Here…",
+        "category": "Kenlith",
+        "icon": "$(arrow-right)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "planChat",
+          "title": "Kenlith",
+          "icon": "media/chat.svg"
+        }
+      ]
+    },
+    "views": {
+      "planChat": [
+        {
+          "id": "planChat.account",
+          "name": "Account",
+          "icon": "media/chat.svg",
+          "contextualTitle": "Kenlith",
+          "initialSize": 1
+        },
+        {
+          "id": "planChat.sidebar",
+          "name": "Chats",
+          "icon": "media/chat.svg",
+          "contextualTitle": "Kenlith",
+          "initialSize": 5
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "planChat.newChat",
+          "when": "view == planChat.sidebar && planChat.signedIn",
+          "group": "navigation@1"
+        },
+        {
+          "command": "planChat.searchChats",
+          "when": "view == planChat.sidebar",
+          "group": "navigation@2"
+        },
+        {
+          "command": "planChat.newGroup",
+          "when": "view == planChat.sidebar",
+          "group": "navigation@3"
+        },
+        {
+          "command": "planChat.showAllChats",
+          "when": "view == planChat.sidebar",
+          "group": "1_more@1"
+        },
+        {
+          "command": "planChat.chooseProject",
+          "when": "view == planChat.sidebar",
+          "group": "1_more@2"
+        },
+        {
+          "command": "planChat.manageProjectSharing",
+          "when": "view == planChat.sidebar",
+          "group": "1_more@3"
+        },
+        {
+          "command": "planChat.newChatBeside",
+          "when": "view == planChat.sidebar && planChat.signedIn",
+          "group": "1_more@0"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "planChat.openChatBeside",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat/",
+          "group": "inline@1"
+        },
+        {
+          "command": "planChat.openChat",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat/",
+          "group": "1_open@1"
+        },
+        {
+          "command": "planChat.openChatBeside",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat/",
+          "group": "1_open@2"
+        },
+        {
+          "command": "planChat.renameChat",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat/",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "planChat.moveChatToGroup",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat/",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "planChat.removeFromGroup",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat.*\\.grouped$/",
+          "group": "2_edit@3"
+        },
+        {
+          "command": "planChat.moveToGeneral",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat(\\.grouped)?$/ && planChat.projectWindow",
+          "group": "3_context@1"
+        },
+        {
+          "command": "planChat.moveChatHere",
+          "when": "view == planChat.sidebar && viewItem =~ /^chat\\.readonly/",
+          "group": "3_context@2"
+        },
+        {
+          "command": "planChat.renameGroup",
+          "when": "view == planChat.sidebar && viewItem == group",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "planChat.removeGroup",
+          "when": "view == planChat.sidebar && viewItem == group",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "planChat.manageProjectSharing",
+          "when": "view == planChat.sidebar && viewItem == section.this",
+          "group": "inline@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "planChat.signOut",
+          "when": "false"
+        },
+        {
+          "command": "planChat.openChat",
+          "when": "false"
+        },
+        {
+          "command": "planChat.openChatBeside",
+          "when": "false"
+        },
+        {
+          "command": "planChat.removeFromGroup",
+          "when": "false"
+        },
+        {
+          "command": "planChat.accountActions",
+          "when": "false"
+        },
+        {
+          "command": "planChat.moveChatHere",
+          "when": "false"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "planChat.attachSelection",
+          "when": "editorHasSelection",
+          "group": "9_planChat@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Kenlith",
+      "properties": {
+        "kenlith.maxHistoryMessages": {
+          "type": "number",
+          "default": 30,
+          "minimum": 4,
+          "maximum": 100,
+          "scope": "application",
+          "description": "Maximum number of recent messages sent as context with each request. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.instructions": {
+          "type": "string",
+          "default": "You are a helpful assistant inside the user's code editor. Be concise, accurate, and use the supplied conversation context.",
+          "scope": "application",
+          "description": "Instructions sent with each model request. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.context.maxSelectionCharacters": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 1,
+          "maximum": 20000,
+          "scope": "application",
+          "description": "Largest code selection that Attach Selection accepts, in characters (UTF-16 code units). At most 20,000. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.projectContext.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "In a project chat, read relevant files of the open project on this computer and, after you allow it for that project and ChatGPT account, send short excerpts with your questions. Turn off to never read or send project files. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.projectContext.tools": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "After you allow sharing for a project, let ChatGPT ask Kenlith for more evidence from it with read-only tools: find files, search text, read a few lines. The tools cannot change files or run commands, skip secrets and excluded folders, and are limited per message. Turn off to send only the excerpts Kenlith chooses itself. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.projectContext.proposals": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "With project tools on, let ChatGPT propose edits to existing text files of the project. A proposal changes nothing: after the answer, Kenlith shows the exact diff, and only Apply changes the files, in the editor, without saving. Files with unsaved edits are never changed. Turn off to never receive change proposals. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.projectContext.commands": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "With project tools on, let ChatGPT ask Kenlith to run commands and workspace tasks in the project. Kenlith decides the risk itself: safe local checks (tests, linters, type checks, read-only git) run without a prompt; anything with side effects (network, installs, file or git changes, shells) waits for your approval; dangerous runs are refused. Output goes to ChatGPT only within project sharing, without secrets. Turn off to never run commands. Read from user settings only; workspace values are ignored."
+        },
+        "kenlith.reasoning.defaultEffort": {
+          "type": "string",
+          "enum": [
+            "default",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "enumItemLabels": [
+            "Default",
+            "Low",
+            "Medium",
+            "High",
+            "Extra High",
+            "Max"
+          ],
+          "enumDescriptions": [
+            "Send no thinking level: each model uses its own default. Requests are the same as in Kenlith 0.7.0.",
+            "Faster for routine work.",
+            "Balanced.",
+            "More reasoning for complex work.",
+            "Deeper analysis.",
+            "Maximum supported reasoning."
+          ],
+          "default": "default",
+          "scope": "application",
+          "description": "The Thinking level for chats where you have not chosen one in the composer. A level chosen in a chat is kept with that chat and wins over this setting. A model that does not support the level uses its own default, and Kenlith sends no level. Higher levels can take longer and count more against your usage limits; they do not always give a better answer. Read from user settings only; workspace values are ignored."
+        },
+        "planChat.maxHistoryMessages": {
+          "type": "number",
+          "default": 30,
+          "minimum": 4,
+          "maximum": 100,
+          "scope": "application",
+          "description": "Plan Chat 0.4.0 setting, replaced by kenlith.maxHistoryMessages. Kenlith copies your value there and still reads this one if the Kenlith setting is not set; it is kept so that a return to Plan Chat 0.4.0 keeps your value. Read from user settings only; workspace values are ignored.",
+          "deprecationMessage": "Replaced by kenlith.maxHistoryMessages. Kept only for a return to Plan Chat 0.4.0.",
+          "markdownDeprecationMessage": "Replaced by `#kenlith.maxHistoryMessages#`. Kept only for a return to Plan Chat 0.4.0."
+        },
+        "planChat.instructions": {
+          "type": "string",
+          "default": "You are a helpful assistant inside the user's code editor. Be concise, accurate, and use the supplied conversation context.",
+          "scope": "application",
+          "description": "Plan Chat 0.4.0 setting, replaced by kenlith.instructions. Kenlith copies your value there and still reads this one if the Kenlith setting is not set; it is kept so that a return to Plan Chat 0.4.0 keeps your value. Read from user settings only; workspace values are ignored.",
+          "deprecationMessage": "Replaced by kenlith.instructions. Kept only for a return to Plan Chat 0.4.0.",
+          "markdownDeprecationMessage": "Replaced by `#kenlith.instructions#`. Kept only for a return to Plan Chat 0.4.0."
+        },
+        "planChat.context.maxSelectionCharacters": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 1,
+          "maximum": 20000,
+          "scope": "application",
+          "description": "Plan Chat 0.4.0 setting, replaced by kenlith.context.maxSelectionCharacters. Kenlith copies your value there and still reads this one if the Kenlith setting is not set; it is kept so that a return to Plan Chat 0.4.0 keeps your value. Read from user settings only; workspace values are ignored.",
+          "deprecationMessage": "Replaced by kenlith.context.maxSelectionCharacters. Kept only for a return to Plan Chat 0.4.0.",
+          "markdownDeprecationMessage": "Replaced by `#kenlith.context.maxSelectionCharacters#`. Kept only for a return to Plan Chat 0.4.0."
+        },
+        "planChat.projectContext.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Plan Chat 0.4.0 setting, replaced by kenlith.projectContext.enabled. Kenlith copies your value there and still reads this one if the Kenlith setting is not set; it is kept so that a return to Plan Chat 0.4.0 keeps your value. Read from user settings only; workspace values are ignored.",
+          "deprecationMessage": "Replaced by kenlith.projectContext.enabled. Kept only for a return to Plan Chat 0.4.0.",
+          "markdownDeprecationMessage": "Replaced by `#kenlith.projectContext.enabled#`. Kept only for a return to Plan Chat 0.4.0."
+        }
+      }
+    }
+  }
+}

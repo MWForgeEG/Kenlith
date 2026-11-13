@@ -1,0 +1,11 @@
+{
+  "name": "plan-chat-readback-probe",
+  "displayName": "Plan Chat 0.1.2 read-back probe (test only)",
+  "version": "0.0.1",
+  "publisher": "local-test",
+  "private": true,
+  "engines": { "vscode": "^1.107.0" },
+  "main": "./index.js",
+  "activationEvents": ["onStartupFinished"],
+  "capabilities": { "untrustedWorkspaces": { "supported": true } }
+}

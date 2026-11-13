@@ -1,0 +1,11 @@
+{
+  "name": "plan-chat-trust-probe",
+  "displayName": "Kenlith trust probe (test only)",
+  "version": "0.0.1",
+  "publisher": "local-test",
+  "private": true,
+  "engines": { "vscode": "^1.107.0" },
+  "main": "./index.js",
+  "activationEvents": [],
+  "capabilities": { "untrustedWorkspaces": { "supported": true } }
+}

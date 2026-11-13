@@ -1,0 +1,53 @@
+# Build output (release packages are published on GitHub Releases, not committed)
+dist/
+*.vsix
+
+# Dependencies and tool caches
+node_modules/
+.npm/
+.vscode-test/
+
+# Local evidence written by the editor integration suites
+docs/release-evidence/
+
+# Historical packages used only by the private release gates
+releases/
+backups/
+
+# Editor and extension runtime state
+*.vscdb
+*.vscdb.backup
+state.vscdb*
+Cookies
+Cookies-journal
+Local State
+Network Persistent State
+**/User/globalStorage/
+**/user-data/
+
+# Machine-local tool settings
+.claude/
+.vscode/settings.json
+
+# Credentials and secrets
+.env
+.env.*
+*.pem
+*.pfx
+*.p12
+*.key
+secrets.json
+credentials.json
+auth.json
+session-state.json
+
+# Temporary files and logs
+*.tmp
+*.log
+*.corrupt-*
+~$*
+
+# Operating system files
+Thumbs.db
+desktop.ini
+.DS_Store

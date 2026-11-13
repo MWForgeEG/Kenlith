@@ -1,0 +1,11 @@
+{
+  "name": "plan-chat-candidate-probe",
+  "displayName": "Kenlith release-candidate probe (test only)",
+  "version": "0.0.1",
+  "publisher": "local-test",
+  "private": true,
+  "engines": { "vscode": "^1.107.0" },
+  "main": "./index.js",
+  "activationEvents": ["onStartupFinished"],
+  "capabilities": { "untrustedWorkspaces": { "supported": true } }
+}

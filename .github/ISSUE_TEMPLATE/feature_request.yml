@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an improvement or a new capability for Kenlith.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Please describe the problem first; it helps us find the right solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How you imagine it working from the user's point of view.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: textarea
+    id: safety
+    attributes:
+      label: Data and safety considerations
+      description: Would this send more project data to OpenAI, change files, or run commands? How should the user stay in control?
