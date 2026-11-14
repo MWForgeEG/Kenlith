@@ -69,6 +69,10 @@ one of the boundaries above.
   Chats are stored locally in the extension's storage folder.
 - Kenlith cannot access your ChatGPT conversations, memories or projects on
   chatgpt.com.
+- **Deep Research** uses OpenAI's hosted public web search. A research request
+  carries your question and the chat's text. Kenlith does not add project
+  files, attached code or project tools to it. See the
+  [security model](docs/SECURITY-MODEL.md#deep-research).
 - If you suspect token exposure, choose **Sign Out** in Kenlith. Then
   disconnect the app in ChatGPT under **Settings > Security and login > Sign
   in with ChatGPT**. Sign Out asks OpenAI to revoke the session, but this has

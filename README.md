@@ -17,8 +17,9 @@
 
 Kenlith is an open-source extension for **VS Code** and **Antigravity IDE**.
 It lets you talk to ChatGPT about the project you have open, in an editor tab
-next to your code. You sign in with your ChatGPT account. Kenlith needs no
-OpenAI API key.
+next to your code. With **Deep Research**, ChatGPT can also search the public
+web and answer with cited sources. You sign in with your ChatGPT account.
+Kenlith needs no OpenAI API key.
 
 Kenlith is built for developers who want ChatGPT's help with a real codebase
 and want to stay in control. Kenlith reads your files locally and decides, in
@@ -27,7 +28,7 @@ allowed are sent. Every file change is shown to you
 before it is applied, and commands that could change anything wait for your
 approval.
 
-![Kenlith 0.8.0: two chats in editor tabs. One is in Arabic. The composer shows the model and the Thinking level, and each chat shows its project and sharing status.](docs/assets/kenlith-0.8.0-editor.png)
+![Kenlith 0.9.0: two chats in editor tabs, one in Arabic, each showing its project and sharing status. Deep Research is on in both composers, next to the + button, the model and the Thinking level.](docs/assets/kenlith-0.9.0-editor.png)
 
 > Kenlith is an independent open-source project. It is not affiliated with or
 > endorsed by OpenAI, Microsoft, Google, Anthropic, or the VS Code project.
@@ -215,10 +216,9 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
   other replies.
 - **Arabic paragraphs that begin with a Latin word** (for example a product
   name) may be laid out left to right.
-- **Citation positions.** OpenAI's citation offsets can be read as UTF-16
-  units or as code points, and live testing did not show which one applies.
-  Kenlith maps them defensively: a citation it cannot place exactly on a link
-  to its address is listed under **Sources** only.
+- **Some citations appear only under Sources.** When Kenlith cannot place a
+  citation exactly on a link in the answer, it lists the page under
+  **Sources** without an inline number.
 - **Screen readers.** The interface has named controls, keyboard navigation
   and visible focus, but it has not been validated with a screen reader.
 - **No marketplace install.** Kenlith is installed from a `.vsix` file only.
