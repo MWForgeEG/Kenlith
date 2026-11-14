@@ -139,9 +139,17 @@ message and answer with cited sources.
   the chip, or the menu item again, to turn it off. It applies to one
   message, then turns off.
 - The request uses OpenAI's hosted web search, and a search always runs. It
-  uses the model and Thinking level you chose. Deep Research is verified with
-  **GPT-6-Astra**; with another model Kenlith sends nothing and offers **Use
-  GPT-6-Astra**.
+  uses the model and Thinking level you chose, and Kenlith never switches
+  the model. Deep Research runs with the models verified for it:
+  GPT-6-Astra, GPT-6.1-Sol, GPT-6.1 Terra, GPT-6-Sol, GPT-6-Luna,
+  GPT-5.6-Sol, GPT-5.6-Terra and GPT-5.6-Luna. With any other model,
+  including a new model your account starts to list, nothing is sent: your
+  model, your message and Deep Research stay as they were, and a note asks
+  you to choose a supported model in the Model selector.
+- If OpenAI refuses web search for a supported model, for example because of
+  an account or workspace policy, the reply shows Kenlith's explanation with
+  OpenAI's own message (shortened, with secrets removed), the error code and
+  the request ID. Kenlith does not retry or switch models.
 - While it runs, the reply shows what is happening: *Searching the web…*,
   *Reading sources…*, *Synthesizing…*, with the number of searches and pages
   read. The model's reasoning is never shown.
@@ -415,8 +423,9 @@ Sign-in tokens are kept separately, in the editor's secure `SecretStorage`.
   reworded secret.
 - **Thinking levels** come from a static, built-in model table.
 - **Markdown in replies** is a subset. Tables are shown as raw Markdown.
-- **Deep Research** is live-verified with GPT-6-Astra only, and it runs in
-  the foreground: closing the editor ends a run.
+- **Deep Research** runs only with the eight verified models; a new model is
+  not supported until Kenlith has reviewed it. It runs in the foreground:
+  closing the editor ends a run.
 - **Arabic paragraphs that begin with a Latin word** may be laid out left to
   right.
 - **Citation positions** are mapped defensively, because OpenAI's offsets

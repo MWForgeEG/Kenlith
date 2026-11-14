@@ -37,7 +37,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
 // An HTTP error response from OpenAI. Network failures stay plain errors so
 // callers can tell "the server rejected this" apart from "we could not reach it".
 class RequestError extends Error {
-  constructor(message, { status, code, requestId, param } = {}) {
+  constructor(message, { status, code, requestId, param, providerMessage } = {}) {
     super(message);
     this.name = 'RequestError';
     this.status = status;
@@ -45,6 +45,9 @@ class RequestError extends Error {
     this.requestId = requestId;
     // 0.8.0: the request field OpenAI named, if any (for example reasoning.effort).
     this.param = param;
+    // 0.9.1: OpenAI's own error text, kept even when `message` uses a plan-route
+    // hint in its place. Shown only for Deep Research refusals (src/research.js).
+    this.providerMessage = typeof providerMessage === 'string' && providerMessage.trim() ? providerMessage : undefined;
   }
 }
 

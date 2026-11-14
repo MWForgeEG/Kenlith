@@ -119,10 +119,10 @@ From a terminal:
 
 ```shell
 # VS Code
-code --install-extension kenlith-antigravity-0.9.0.vsix
+code --install-extension kenlith-antigravity-0.9.1.vsix
 
 # Antigravity IDE
-antigravity-ide --install-extension kenlith-antigravity-0.9.0.vsix
+antigravity-ide --install-extension kenlith-antigravity-0.9.1.vsix
 ```
 
 The same `.vsix` works in both editors; `antigravity` in the file name and the
@@ -207,8 +207,11 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
   levels only for models in its built-in list, which follows OpenAI's model
   documentation. Other models offer Default only. Thinking Effort has been
   verified live on `gpt-6.1-sol` only.
-- **Deep Research is live-verified with GPT-6-Astra only.** With another
-  model Kenlith sends nothing and offers GPT-6-Astra.
+- **Deep Research runs only with verified models.** From 0.9.1 these are
+  `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`,
+  `gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna`. With any other model,
+  including new models your account starts to list, Kenlith sends nothing
+  and asks you to choose a supported model.
 - **Deep Research runs in the foreground.** Closing the editor ends a run;
   the reply is kept as interrupted and offers **Retry**. There is no
   background research.

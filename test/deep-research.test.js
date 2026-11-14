@@ -27,11 +27,21 @@ const { getWebviewHtml } = require('../src/view');
 
 const ASTRA = 'gpt-6-astra';
 const SOL = 'gpt-6.1-sol';
+// 0.9.1: a model the account lists but Kenlith has not reviewed for web search.
+const UNKNOWN = 'gpt-7-nova';
+const VERIFIED_090_1 = ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'];
 const MODELS = [
   { slug: SOL, display_name: 'GPT-6.1-Sol', visibility: 'list' },
   { slug: ASTRA, display_name: 'GPT-6-Astra', visibility: 'list' },
-  { slug: 'gpt-6-luna', display_name: 'GPT-6-Luna', visibility: 'list' }
+  { slug: 'gpt-6-luna', display_name: 'GPT-6-Luna', visibility: 'list' },
+  { slug: UNKNOWN, display_name: 'GPT-7-Nova', visibility: 'list' }
 ];
+// The live account list of 2026-11-14 (eight listed models, two hidden), plus one unreviewed model.
+const LIVE_MODELS_091 = [
+  ['gpt-6.1-sol', 'GPT-6.1-Sol'], ['gpt-6-astra', 'GPT-6-Astra'], ['gpt-6.1-terra', 'GPT-6.1 Terra'], ['gpt-6-sol', 'GPT-6-Sol'],
+  ['gpt-reserve', 'GPT-Reserve', 'hide'], ['gpt-6-luna', 'GPT-6-Luna'], ['gpt-5.6-sol', 'GPT-5.6-Sol'], ['gpt-5.6-terra', 'GPT-5.6-Terra'],
+  ['gpt-5.6-luna', 'GPT-5.6-Luna'], ['codex-auto-review', 'Codex Auto Review', 'hide'], [UNKNOWN, 'GPT-7-Nova']
+].map(([slug, name, visibility = 'list']) => ({ slug, display_name: name, visibility }));
 const KEYS_080 = ['input', 'instructions', 'model', 'store', 'stream'];
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures-090', 'live-run2-stream.json'), 'utf8'));
 const LIVE_ANNOTATIONS = FIXTURE.events.filter((e) => e.type === 'response.output_text.annotation.added').map((e) => e.annotation);
@@ -154,14 +164,22 @@ async function waitFor(predicate, what, ms = 8000) {
 // ---------------------------------------------------------------------------
 // Policy and request shape
 
-test('DR-01 policy: only the live-verified model runs Deep Research; it adds web_search and tool_choice required', () => {
-  assert.deepEqual(Object.keys(research.RESEARCH_MODELS), [ASTRA]);
-  assert.equal(research.supportsResearch(ASTRA), true);
-  for (const other of [SOL, 'gpt-6-luna', 'gpt-6-astra-2026-11-01', '', undefined]) assert.equal(research.supportsResearch(other), false, String(other));
+test('DR-01 policy (0.9.1): exactly the eight verified models run Deep Research; it adds web_search and tool_choice required', () => {
+  assert.deepEqual(Object.keys(research.RESEARCH_MODELS), VERIFIED_090_1);
+  for (const id of VERIFIED_090_1) {
+    assert.equal(research.supportsResearch(id), true, id);
+    assert.match(research.RESEARCH_MODELS[id], /official model page lists Responses API web_search; live ChatGPT-plan route check passed 2026-11-14/, id);
+  }
+  // Not inferred from /v1/models: hidden or unreviewed slugs, dated snapshots, future IDs.
+  for (const other of [UNKNOWN, 'gpt-6-astra-2026-11-01', 'gpt-5.6-sol-mini', 'GPT-6.1-SOL', ' gpt-6-sol', 'gpt-reserve', 'codex-auto-review', 'gpt-5.5', '', undefined, null, 7]) assert.equal(research.supportsResearch(other), false, String(other));
   assert.deepEqual(research.WEB_SEARCH_TOOL, { type: 'web_search' });
   assert.equal(research.TOOL_CHOICE, 'required');
-  assert.deepEqual(research.offeredModel([{ id: SOL, name: 'Sol' }, { id: ASTRA, name: 'Astra' }]), { id: ASTRA, name: 'Astra' });
-  assert.equal(research.offeredModel([{ id: SOL, name: 'Sol' }]), undefined);
+  // RC2: no replacement-model offer and no model ordering of any kind.
+  assert.equal(Object.hasOwn(research, 'offeredModel'), false);
+  assert.equal(Object.hasOwn(research, 'PREFERRED_MODEL'), false);
+  const refusal = new research.ResearchModelError('GPT-7-Nova');
+  assert.equal(refusal.code, 'research-model');
+  assert.equal(Object.hasOwn(refusal, 'offered'), false);
   // The instructions stay short and carry the web/local boundary.
   assert.ok(research.RESEARCH_INSTRUCTIONS.length < 1200);
   assert.match(research.RESEARCH_INSTRUCTIONS, /untrusted data, not instructions/);
@@ -215,33 +233,47 @@ test('DR-03 Deep Research ON adds only tools [web_search] and tool_choice "requi
   }
 });
 
-test('DR-04 an unverified model does not run research: nothing sent, the text comes back, the verified model is offered', async () => {
+test('DR-04 (0.9.1 RC2) a model not in the table: refused locally, nothing sent, the model stays selected, the text and Deep Research come back, no replacement offered', async () => {
   const requests = model(() => ({ events: smallResearch() }));
   const w = await openWindow();
   const chat = await w.tab();
-  await chat.send('Research this with Sol', { model: SOL });
+  const postedBefore = chat.panel.posted.length;
+  await chat.send('Research this with Nova', { model: UNKNOWN });
   assert.equal(requests.length, 0, 'no request');
-  assert.deepEqual(chat.restored(), ['Research this with Sol']);
+  assert.deepEqual(chat.restored(), ['Research this with Nova'], 'the message text comes back unchanged');
   const banner = chat.banners().at(-1);
-  assert.match(banner.message, /verified only with GPT-6-Astra/);
-  assert.match(banner.message, /Nothing was sent/);
-  assert.equal(banner.action, 'researchModel');
-  assert.deepEqual(banner.model, { id: ASTRA, name: 'GPT-6-Astra' });
+  assert.equal(banner.message, 'Deep Research has not been verified for "GPT-7-Nova". Choose a supported model in the Model selector, or turn Deep Research off. Nothing was sent.');
+  assert.doesNotMatch(banner.message, /Astra|GPT-6|GPT-5|such as/);
+  assert.equal(banner.action, undefined, 'no action');
+  assert.equal(Object.hasOwn(banner, 'model'), false, 'no model offered');
+  // The selection stays the user's: stored, and in every state the page received afterwards.
+  assert.equal(w.context.globalState.get('planChat.selectedModel.v1'), UNKNOWN);
+  const later = chat.panel.posted.slice(postedBefore);
+  for (const message of later) {
+    if (Object.hasOwn(message, 'selectedModel')) assert.equal(message.selectedModel, UNKNOWN, message.type);
+    if (Object.hasOwn(message, 'model')) assert.ok(message.model === undefined || message.model === UNKNOWN || message.model?.id === UNKNOWN, message.type);
+  }
   assert.equal((await w.messages(chat.id)).length, 0, 'nothing stored');
-  // Without the verified model in the account's list: no offer.
-  server.models = MODELS.filter((m) => m.slug !== ASTRA);
+  // The page: a refused Deep Research Send turns the chip back on for that text,
+  // and the banner carries no button (no "Use …").
+  const page = getWebviewHtml({ cspSource: 'vscode-resource:', asWebviewUri: (u) => u }, {}, 'panel');
+  assert.ok(page.includes('if (state.researchAwaiting && message.text === state.researchText && !elements.prompt.value) setResearch(true);'), 'Deep Research comes back on with the refused text');
+  assert.doesNotMatch(page, /research-model-action|researchModel/);
+  // The same with only unsupported models listed.
+  server.models = [{ slug: UNKNOWN, display_name: 'GPT-7-Nova', visibility: 'list' }];
   const w2 = await openWindow();
   const chat2 = await w2.tab();
-  await chat2.send('Research', { model: SOL });
+  await chat2.send('Research', { model: UNKNOWN });
   assert.equal(chat2.banners().at(-1).action, undefined);
-  assert.match(chat2.banners().at(-1).message, /Turn Deep Research off/);
+  assert.equal(chat2.banners().at(-1).message, banner.message);
   assert.equal(requests.length, 0);
 });
 
 test('DR-05 the builder refuses research with attached code, excerpts, project tools or project-derived history', () => {
   const base = { instructions: 'i', history: [], text: 'q', model: ASTRA, research: true };
   assert.ok(buildRequest(base).research);
-  assert.throws(() => buildRequest({ ...base, model: SOL }), /not available for this model/);
+  assert.throws(() => buildRequest({ ...base, model: UNKNOWN }), /not available for this model/);
+  for (const id of VERIFIED_090_1) assert.equal(buildRequest({ ...base, model: id }).research.model, id, id);
   assert.throws(() => buildRequest({ ...base, attachment: { text: 'x', chars: 1 } }), /never project files or attached code/);
   assert.throws(() => buildRequest({ ...base, excerpts: [{ relPath: 'a', startLine: 1, endLine: 1, text: 'x', fileSha256: 'f' }] }), /never project files/);
   assert.throws(() => buildRequest({ ...base, tools: [{ type: 'function', name: 'project_read_file' }] }), /never project files/);
@@ -732,4 +764,177 @@ test('DR-29 a reply to attached code that the user included is not sent with Dee
   assert.ok(!JSON.stringify(requests[0]).includes('ATTACHED_CODE_REPLY_4Z'), 'not in the research request');
   await chat.send('Ordinary follow-up', { research: false });
   assert.ok(JSON.stringify(requests[1]).includes('ATTACHED_CODE_REPLY_4Z'), 'the included reply still goes with ordinary messages (0.8.0)');
+});
+
+// ---------------------------------------------------------------------------
+// 0.9.1: model compatibility (the Astra-only gate removed; the table is the only gate)
+
+const { supportedEfforts } = require('../src/reasoning');
+
+// Every file under a directory, as text (to prove what was not persisted).
+function allStoredText(dir) {
+  let out = '';
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    out += entry.isDirectory() ? allStoredText(full) : fs.readFileSync(full, 'utf8');
+  }
+  return out;
+}
+
+test('DR-30 each of the eight verified models runs Deep Research with itself: same request shape, no switch, Default sends no reasoning', async () => {
+  server.models = LIVE_MODELS_091.map((m) => ({ ...m }));
+  const requests = model(() => ({ events: smallResearch() }));
+  const w = await openWindow();
+  for (const id of VERIFIED_090_1) {
+    const chat = await w.tab();
+    await chat.send(`Research with ${id}`, { model: id, effort: 'default' });
+    const body = requests.at(-1);
+    assert.equal(body.model, id, `${id}: the selected model, not another`);
+    assert.deepEqual(Object.keys(body).sort(), [...KEYS_080, 'tool_choice', 'tools'].sort(), id);
+    assert.deepEqual(body.tools, [{ type: 'web_search' }], id);
+    assert.equal(body.tool_choice, 'required', id);
+    assert.equal(Object.hasOwn(body, 'reasoning'), false, `${id}: Default omits reasoning`);
+    assert.equal(Object.hasOwn(body, 'include'), false, id);
+    assert.equal(body.store, false);
+    assert.equal(body.stream, true);
+    assert.equal(chat.banners().length, 0, `${id}: no refusal`);
+    const answer = (await w.messages(chat.id))[1];
+    assert.equal(answer.error, undefined, id);
+    assert.equal(answer.research.mode, 'deep-research', id);
+    assert.equal(answer.research.citations.length, 1, id);
+  }
+  assert.equal(requests.length, VERIFIED_090_1.length, 'one request per Send, none re-sent with another model');
+  // The unreviewed model the account lists is still refused locally.
+  const chat = await w.tab();
+  await chat.send('Research with Nova', { model: UNKNOWN });
+  assert.equal(requests.length, VERIFIED_090_1.length, 'nothing sent for an unknown model');
+  assert.match(chat.banners().at(-1).message, /has not been verified for "GPT-7-Nova"\. Choose a supported model in the Model selector/);
+  assert.equal(chat.banners().at(-1).action, undefined, 'no replacement offered');
+});
+
+test('DR-31 Thinking is unchanged: GPT-6 models keep their explicit levels with research; GPT-5.6 models stay Default only', async () => {
+  server.models = LIVE_MODELS_091.map((m) => ({ ...m }));
+  for (const id of ['gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-sol', 'gpt-6-luna']) assert.deepEqual([...supportedEfforts(id)], ['default', 'low', 'medium', 'high', 'xhigh', 'max'], id);
+  for (const id of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', UNKNOWN]) assert.deepEqual([...supportedEfforts(id)], ['default'], id);
+  const requests = model(() => ({ events: smallResearch() }));
+  const w = await openWindow();
+  const chat = await w.tab();
+  await chat.send('Research at High', { model: 'gpt-6.1-sol', effort: 'high' });
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].reasoning, { effort: 'high' });
+  assert.equal(requests[0].tool_choice, 'required');
+  // An explicit level for a GPT-5.6 model is refused locally, research or not, as in 0.8.0.
+  for (const on of [true, false]) {
+    const other = await w.tab();
+    await other.send('Research at High on 5.6', { model: 'gpt-5.6-luna', effort: 'high', research: on });
+    assert.equal(requests.length, 1, 'nothing sent');
+    assert.match(other.banners().at(-1).message, /thinking level "High" is not available for this model/);
+  }
+  const plain = await w.tab();
+  await plain.send('Research on 5.6 at Default', { model: 'gpt-5.6-luna', effort: 'default' });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].model, 'gpt-5.6-luna');
+  assert.equal(Object.hasOwn(requests[1], 'reasoning'), false);
+});
+
+test('DR-32 ordinary chat is unchanged on the newly allowed models: exactly the 0.8.0 request, no web search', async () => {
+  server.models = LIVE_MODELS_091.map((m) => ({ ...m }));
+  const requests = model(() => ({ text: 'plain' }));
+  const w = await openWindow();
+  const chat = await w.tab();
+  for (const id of ['gpt-6.1-sol', 'gpt-5.6-luna', UNKNOWN]) {
+    await chat.send(`Plain question on ${id}`, { model: id, research: false });
+    await chat.send(`Plain question on ${id}, older page`, { model: id, research: 'omit' });
+  }
+  assert.equal(requests.length, 6);
+  for (const body of requests) {
+    assert.deepEqual(Object.keys(body).sort(), KEYS_080, body.model);
+    assert.doesNotMatch(body.instructions, /Deep Research/);
+  }
+  assert.ok((await w.messages(chat.id)).every((message) => !message.research));
+});
+
+test('DR-33 a reasoning item before the search (live gpt-5.6-sol order) is ignored: research completes, nothing of it is shown or stored', async () => {
+  server.models = LIVE_MODELS_091.map((m) => ({ ...m }));
+  const SECRET = 'REASONING_CONTENT_7Y';
+  const text = 'The current **Active LTS** release line is **Node.js 26.x (“Lithium”)**. It is scheduled to reach end of life on **April 30, 2029**. ([github.com](https://github.com/nodejs/Release?utm_source=openai))';
+  const start = text.indexOf('([github.com]');
+  const annotation = { type: 'url_citation', start_index: start, end_index: text.length, url: 'https://github.com/nodejs/Release?utm_source=openai', title: 'GitHub - nodejs/Release: Node.js Release Working Group · GitHub' };
+  const reasoning = { type: 'reasoning', id: 'rs_1', summary: [{ type: 'summary_text', text: `${SECRET} summary` }], content: [{ type: 'reasoning_text', text: `${SECRET} content` }], encrypted_content: `${SECRET}_encrypted` };
+  const search = { type: 'web_search_call', id: 'ws_1', status: 'completed', action: { type: 'search', query: 'node lts', queries: ['node lts', 'node release schedule'] } };
+  const message = { type: 'message', id: 'msg_1', status: 'completed', role: 'assistant', content: [{ type: 'output_text', text, annotations: [annotation] }] };
+  // The event order recorded live for gpt-5.6-sol (compat-probe/result-2), with reasoning text added to prove it is ignored.
+  const events = [
+    { type: 'response.created', response: { id: 'resp_1' } },
+    { type: 'response.in_progress', response: { id: 'resp_1' } },
+    { type: 'response.output_item.added', output_index: 0, item: { type: 'reasoning', id: 'rs_1', summary: [] } },
+    { type: 'response.reasoning_summary_text.delta', item_id: 'rs_1', delta: `${SECRET} delta` },
+    { type: 'response.reasoning_text.delta', item_id: 'rs_1', delta: `${SECRET} raw` },
+    { type: 'response.output_item.done', output_index: 0, item: reasoning },
+    { type: 'response.output_item.added', output_index: 1, item: { type: 'web_search_call', id: 'ws_1', status: 'in_progress' } },
+    { type: 'response.web_search_call.in_progress', item_id: 'ws_1' },
+    { type: 'response.web_search_call.searching', item_id: 'ws_1' },
+    { type: 'response.web_search_call.completed', item_id: 'ws_1' },
+    { type: 'response.output_item.done', output_index: 1, item: search },
+    { type: 'response.output_item.added', output_index: 2, item: { type: 'message', id: 'msg_1', content: [] } },
+    { type: 'response.content_part.added', item_id: 'msg_1', part: { type: 'output_text', text: '' } },
+    ...[text.slice(0, 40), text.slice(40, 120), text.slice(120)].map((delta) => ({ type: 'response.output_text.delta', item_id: 'msg_1', delta })),
+    { type: 'response.output_text.annotation.added', item_id: 'msg_1', content_index: 0, annotation_index: 0, annotation },
+    { type: 'response.metadata', metadata: {}, response_id: 'resp_1' },
+    { type: 'response.output_text.done', item_id: 'msg_1', text },
+    { type: 'response.content_part.done', item_id: 'msg_1', part: message.content[0] },
+    { type: 'response.output_item.done', output_index: 2, item: message },
+    { type: 'response.completed', response: { status: 'completed', output: [reasoning, search, message] } }
+  ];
+  const requests = model(() => ({ events }));
+  const w = await openWindow();
+  const chat = await w.tab();
+  await chat.send('What is the current Active LTS release line of Node.js?', { model: 'gpt-5.6-sol', effort: 'default' });
+  assert.equal(requests.length, 1, 'one request; no continuation for the reasoning item');
+  assert.equal(requests[0].model, 'gpt-5.6-sol');
+  const answer = (await w.messages(chat.id))[1];
+  assert.equal(answer.error, undefined);
+  assert.equal(answer.content, text, 'the answer is the streamed text, exactly');
+  assert.equal(answer.research.citations.length, 1);
+  assert.equal(answer.research.citations[0].url, annotation.url);
+  assert.equal(answer.research.searches, 1, 'the web search counted');
+  // Rendered normally: the cited link becomes a clickable citation.
+  const fragment = md.renderCited(createDocument(), answer.content, answer.research.citations);
+  assert.ok(elements(fragment).some((n) => n.localName === 'a' && String(n.getAttribute('href')) === annotation.url), 'citation link rendered');
+  // Never displayed, posted, or persisted.
+  assert.ok(!JSON.stringify(chat.panel.posted).includes(SECRET), 'not posted to the page');
+  assert.ok(!allStoredText(w.storageDir).includes(SECRET), 'not in storage');
+  assert.ok(!/"reasoning/.test(JSON.stringify(answer)), 'no reasoning field on the stored reply');
+});
+
+test('DR-34 a provider refusal of web search on a supported model is shown as OpenAI gave it: no Astra, no switch, no retry', async () => {
+  server.models = LIVE_MODELS_091.map((m) => ({ ...m }));
+  const refused = model(() => ({ status: 400, body: { error: { code: 'subscription_sharing_unsupported_capability', message: 'Web search is not enabled for this workspace.', param: 'tools' } }, headers: { 'x-request-id': 'req_policy_1' } }));
+  const w = await openWindow();
+  const chat = await w.tab();
+  await chat.send('Research refused by policy', { model: 'gpt-5.6-terra', effort: 'default' });
+  assert.equal(refused.length, 1, 'not retried, not re-sent with another model or without research');
+  assert.equal(refused[0].model, 'gpt-5.6-terra');
+  const answer = (await w.messages(chat.id))[1];
+  assert.equal(answer.error, true);
+  assert.match(answer.content, /did not accept Deep Research \(web search\) for this model or account/);
+  assert.match(answer.content, /Web search is not enabled for this workspace\./, 'the provider message, as given');
+  assert.match(answer.content, /subscription_sharing_unsupported_capability/);
+  assert.match(answer.content, /req_policy_1/);
+  assert.doesNotMatch(answer.content, /Astra|verified only/);
+  const update = chat.posted('messageUpdated').at(-1);
+  assert.notEqual(update.action, 'researchModel', 'no model offered for a provider refusal');
+  assert.ok(chat.banners().every((b) => b.action !== 'researchModel'));
+});
+
+test('DR-35 no Astra-only wording and no model offer remain in what the user sees', () => {
+  const html = getWebviewHtml({ cspSource: 'vscode-resource:', asWebviewUri: (u) => u }, {}, 'panel');
+  for (const text of [html, ...['research.js', 'engine.js', 'view.js', 'request-builder.js', 'openai.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'))]) {
+    assert.doesNotMatch(text, /verified only with|Use GPT-6-Astra|Choose GPT-6-Astra|only GPT-6-Astra|research-model-action|'researchModel'|offeredModel/i);
+  }
+  // Astra appears in src only as a table key (the Deep Research and Thinking tables).
+  for (const file of fs.readdirSync(path.join(__dirname, '..', 'src'))) {
+    const lines = fs.readFileSync(path.join(__dirname, '..', 'src', file), 'utf8').split('\n').filter((line) => /astra\b/i.test(line));
+    for (const line of lines) assert.match(line, /^\s*'gpt-6-astra': /, `${file}: ${line.trim()}`);
+  }
 });

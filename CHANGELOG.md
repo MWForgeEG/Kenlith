@@ -5,6 +5,43 @@ kept for reference; the release packages of versions before 0.8.0 are not
 published in this repository. Entries before 0.4.1 use the earlier setting
 names (`planChat.*`); the settings are now `kenlith.*`.
 
+## 0.9.1 (2026-11-14)
+
+**Summary.** Deep Research works with all eight models Kenlith has verified
+for web search, instead of GPT-6-Astra only. Ordinary chat is unchanged.
+
+- **Deep Research models.** `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`,
+  `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra` and
+  `gpt-5.6-luna`. Each is documented by OpenAI with hosted web search in the
+  Responses API, and each passed a live check on the ChatGPT plan route.
+  Deep Research uses the model you selected; Kenlith never switches it.
+- **Other models.** A model that is not on this list (for example a new model
+  your account starts to offer) does not run Deep Research until Kenlith has
+  reviewed it. Nothing is sent. Your model stays selected, your message and
+  Deep Research stay as they were, and a short note asks you to choose a
+  supported model in the Model selector. Kenlith does not pick or suggest a
+  model for you.
+- **Refusals.** If OpenAI refuses web search for a supported model, for
+  example because of an account or workspace policy, the reply adds OpenAI's
+  own message (at most 500 characters, with secrets removed) to Kenlith's
+  explanation, with the error code and request ID. This applies only to Deep
+  Research. Kenlith does not retry and does not switch models.
+- Unchanged: ordinary messages and their errors, the Deep Research request
+  (`web_search` with `tool_choice: "required"`), citations, Sources, Stop,
+  Retry, the project boundary, the icons, and Thinking: each model offers the
+  levels it offered in 0.9.0 (the GPT-5.6 models: Default only).
+
+**Known limitations.**
+
+- **New models are not supported automatically.** A model is added to the
+  Deep Research list only after it is reviewed, even if your account lists it.
+- **GPT-5.6 models offer Default Thinking only**, because they are not in
+  Kenlith's Thinking table.
+- **Deep Research with a chosen Thinking level** has been checked live on
+  GPT-6-Astra only.
+- The other 0.9.0 limitations below still apply, except the GPT-6-Astra-only
+  restriction, which this release removes.
+
 ## 0.9.0 (2026-11-14)
 
 **Summary.** Deep Research: ask a question, Kenlith has ChatGPT search the

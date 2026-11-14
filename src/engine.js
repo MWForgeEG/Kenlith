@@ -44,7 +44,7 @@ const { affectsSetting, userCommandsEnabled, userInstructions, userMaxHistoryMes
 const { LABELS: EFFORT_LABELS, effortRejection, effortView, isEffort, isSupported } = require('./reasoning');
 // 0.9.0: Deep Research (src/research.js, src/citations.js).
 const researchPolicy = require('./research');
-const { ResearchModelError, offeredModel, researchRejection, supportsResearch } = require('./research');
+const { ResearchModelError, researchRejection, supportsResearch } = require('./research');
 const { placeCitations } = require('./citations');
 const { USAGE_PAUSE_KEY, USAGE_SETTINGS_URL, UsagePausedError, WELCOME_ACTION, WELCOME_DETAIL, WELCOME_KEY, WELCOME_TITLE, isUsageLimitError, usesPlan } = require('./siwc');
 const { safeError } = require('./util');
@@ -2346,12 +2346,13 @@ class ChatEngine {
       await this.#postReasoning([surface], selectedModel).catch(() => undefined);
       throw new Error(`The thinking level "${EFFORT_LABELS[effort]}" is not available for this model. Choose Default or another level. Nothing was sent.`);
     }
-    // 0.9.0 Deep Research: only with a model verified for it on this route
-    // (no silent switch: a verified model is offered), and never with
+    // 0.9.0 Deep Research: only with a model in src/research.js
+    // RESEARCH_MODELS (0.9.1: eight; no silent switch and no replacement
+    // offered: the user chooses in the Model selector), and never with
     // attached code. Refused here, before anything is stored; nothing is sent.
     if (research) {
       if (!supportsResearch(selectedModel)) {
-        throw new ResearchModelError(this.models.find((model) => model.id === selectedModel)?.name || selectedModel, offeredModel(this.models));
+        throw new ResearchModelError(this.models.find((model) => model.id === selectedModel)?.name || selectedModel);
       }
       if (attachmentId !== undefined && attachmentId !== null) {
         throw new Error('Deep Research sends only your question and this chat\'s text, never attached code. Remove the attached code or turn off Deep Research. Nothing was sent.');
@@ -2894,10 +2895,9 @@ class ChatEngine {
   #reportError(error, surfaces) {
     const message = safeError(error);
     const targets = surfaces || [...this.#surfaces];
-    // 0.9.0: Deep Research refused for the selected model offers a verified
-    // model (the user chooses it; nothing is switched or sent).
-    const offered = error instanceof ResearchModelError ? error.offered : undefined;
-    this.#postTo(targets, { type: 'error', message, action: usageAction(error) || (offered ? 'researchModel' : undefined), ...(offered ? { model: offered } : {}) });
+    // 0.9.1 RC2: a Deep Research model refusal carries no action and no model
+    // (nothing is offered, switched or sent).
+    this.#postTo(targets, { type: 'error', message, action: usageAction(error) });
     if (!targets.some((surface) => surface.host.visible)) {
       this.#notifyError(error).catch(() => undefined);
     }

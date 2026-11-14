@@ -237,7 +237,8 @@ class OpenAIService {
         const error = event?.response?.error || event?.error || {};
         throw new RequestError(describeFailure({ code: error.code, message: error.message }), {
           code: error.code,
-          param: typeof error.param === 'string' ? error.param : undefined
+          param: typeof error.param === 'string' ? error.param : undefined,
+          providerMessage: typeof error.message === 'string' ? error.message : undefined
         });
       } else if (type === 'response.incomplete') {
         const reason = event?.response?.incomplete_details?.reason || 'unknown reason';
@@ -270,7 +271,7 @@ async function readJsonResponse(response) {
       || response.statusText;
     throw new RequestError(
       `OpenAI request failed: ${describeFailure({ status: response.status, code, message, requestId })}`,
-      { status: response.status, code, requestId, param: typeof body?.error?.param === 'string' ? body.error.param : undefined }
+      { status: response.status, code, requestId, param: typeof body?.error?.param === 'string' ? body.error.param : undefined, providerMessage: typeof message === 'string' ? message : undefined }
     );
   }
   return body;

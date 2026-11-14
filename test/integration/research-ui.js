@@ -27,7 +27,8 @@ const evidence = evidenceArg || path.join(__dirname, '..', '..', 'docs', 'releas
 fs.mkdirSync(evidence, { recursive: true });
 const FIXTURE = path.join(__dirname, '..', 'fixtures-090', 'live-run2-stream.json');
 const PORT = 9374;
-const MODELS = [{ id: 'gpt-6-astra', name: 'GPT-6-Astra' }, { id: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' }];
+// 0.9.1: an unreviewed model first, then models that 0.9.0 refused and 0.9.1 allows.
+const MODELS = [{ id: 'gpt-7-nova', name: 'GPT-7-Nova' }, { id: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' }, { id: 'gpt-6-astra', name: 'GPT-6-Astra' }, { id: 'gpt-5.6-luna', name: 'GPT-5.6-Luna' }];
 const results = [];
 const check = (name, ok, detail) => {
   results.push({ name, ok: Boolean(ok), detail });
@@ -262,23 +263,26 @@ async function main() {
   await cmd({ command: 'workbench.view.extension.planChat' });
   await setWidth(1600);
 
-  // ---------- an unverified model: nothing sent, the verified one offered ----------
+  // ---------- 0.9.1 RC2: a model not in the table: refused locally, nothing offered ----------
   const h = await view('هلا هلا');
-  await choose(h, 'models', 'gpt-6.1-sol');
+  await choose(h, 'models', 'gpt-7-nova');
   await sleep(600);
   const before = (await state()).requests.length;
   await focusPrompt(page, input, h);
   await input.type('قارن جداول إصدار Node.js وDeno وBun');
   await input.press('Enter');
   await waitFor(() => inChat(h, "!d.getElementById('errorBanner').classList.contains('hidden')"), 8000, 200).catch(() => undefined);
-  const refused = await inChat(h, "({ banner: d.getElementById('errorBanner').textContent, use: d.querySelector('.research-model-action') ? d.querySelector('.research-model-action').textContent : null, prompt: d.getElementById('prompt').value, chip: !d.getElementById('researchRow').classList.contains('hidden') })");
+  await sleep(1500);
+  const refused = await inChat(h, "({ banner: d.getElementById('errorBanner').textContent, buttons: [...d.getElementById('errorBanner').querySelectorAll('button')].map((b) => b.textContent), model: d.getElementById('models').value, prompt: d.getElementById('prompt').value, chip: !d.getElementById('researchRow').classList.contains('hidden') })");
   const afterRefusal = (await state()).requests.length;
-  check('a model not verified for Deep Research: nothing sent, the text and the chip come back, "Use GPT-6-Astra" is offered', afterRefusal === before && /verified only with GPT-6-Astra/.test(refused.banner) && refused.use === 'Use GPT-6-Astra' && refused.prompt.includes('Node.js') && refused.chip, { before, afterRefusal, ...refused });
+  check('a model not in the Deep Research table: nothing sent; neutral guidance to the Model selector; no button, no replacement offered; the model stays GPT-7-Nova; the text and Deep Research stay',
+    afterRefusal === before && refused.banner === 'Deep Research has not been verified for "GPT-7-Nova". Choose a supported model in the Model selector, or turn Deep Research off. Nothing was sent.' && refused.buttons.length === 0 && refused.model === 'gpt-7-nova' && refused.prompt === 'قارن جداول إصدار Node.js وDeno وBun' && refused.chip, { before, afterRefusal, ...refused });
   await screenshot(page, 'dark-unverified-model.png');
-  await clickIn(page, input, h, '.research-model-action');
+  // The user chooses a supported model in the existing Model selector: that only selects it.
+  await choose(h, 'models', 'gpt-6.1-sol');
   await sleep(800);
-  const switched = await inChat(h, "({ model: d.getElementById('models').value, banner: d.getElementById('errorBanner').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id })");
-  check('"Use GPT-6-Astra" selects the model only (no request), closes the notice and returns to the message box', switched.model === 'gpt-6-astra' && switched.banner && switched.focused === 'prompt' && (await state()).requests.length === before, switched);
+  const switched = await inChat(h, "({ model: d.getElementById('models').value, chip: !d.getElementById('researchRow').classList.contains('hidden'), prompt: d.getElementById('prompt').value })");
+  check('choosing GPT-6.1-Sol in the Model selector only selects it (no request); the text and Deep Research are still there', switched.model === 'gpt-6.1-sol' && switched.chip && switched.prompt.includes('Node.js') && (await state()).requests.length === before, switched);
 
   // ---------- a research run (Arabic answer from the recorded run) ----------
   await focusPrompt(page, input, h);
@@ -294,8 +298,8 @@ async function main() {
   const done = await inChat(h, ANSWER);
   const after = await state();
   const req = after.requests.at(-1);
-  check('Send with Deep Research: the transport gets a research request (web_search, tool_choice required) on GPT-6-Astra; the chip turns off after Send',
-    req && req.research === true && JSON.stringify(req.researchTools) === '[{"type":"web_search"}]' && req.researchToolChoice === 'required' && req.model === 'gpt-6-astra' && req.tools === false && !(await inChat(h, MEASURE)).chipShown, req);
+  check('Send with Deep Research: the transport gets a research request (web_search, tool_choice required) on GPT-6.1-Sol (refused by 0.9.0); the chip turns off after Send',
+    req && req.research === true && JSON.stringify(req.researchTools) === '[{"type":"web_search"}]' && req.researchToolChoice === 'required' && req.model === 'gpt-6.1-sol' && req.tools === false && !(await inChat(h, MEASURE)).chipShown, req);
   check('progress shows only observed steps, in order: Searching the web, Reading sources, Synthesizing (no percentage)',
     phases.includes('Searching the web…') && phases.includes('Synthesizing…') && phases.indexOf('Searching the web…') < phases.indexOf('Synthesizing…') && phases.every((p) => !/%/.test(p)), phases);
   check('the answer shows 7 clickable citations from the annotations (number and domain, left-to-right), and no raw link text', done.cites === 7 && done.citeHrefs.every((u) => /^https:\/\//.test(u)) && done.citeDirs.every((x) => x === 'ltr') && done.citeTexts[0] === '1nodejs.org' && done.rawLinks === 0, { cites: done.cites, texts: done.citeTexts, labels: done.citeLabels, rawLinks: done.rawLinks });
@@ -320,7 +324,7 @@ async function main() {
 
   // ---------- Stop, then Retry (explicit, sends nothing) ----------
   const r = await view('Release notes');
-  await choose(r, 'models', 'gpt-6-astra');
+  await choose(r, 'models', 'gpt-5.6-luna');
   await sleep(500);
   if (!(await inChat(r, MEASURE)).chipShown) await toggleOn(r);
   const count0 = (await state()).requests.length;
@@ -335,6 +339,8 @@ async function main() {
   const stopped = await inChat(r, ANSWER);
   const afterStop = await state();
   check('while running: "Deep Research is running…" and Stop are shown', /Deep Research is running/.test(running.status) && running.stop, running);
+  check('GPT-5.6-Luna (refused by 0.9.0) runs Deep Research with itself: web_search, tool_choice required, no reasoning field (Default only)',
+    afterStop.requests.at(-1)?.model === 'gpt-5.6-luna' && afterStop.requests.at(-1)?.research === true && afterStop.requests.at(-1)?.researchToolChoice === 'required' && afterStop.requests.at(-1)?.effort === null, afterStop.requests.at(-1));
   check('Escape stops the run: the reply says it stopped and did not continue, offers Retry; one request, no retry; stored as stopped',
     stopped.notes.some((t) => /stopped this Deep Research run before it finished\. It did not continue/.test(t)) && stopped.retry && afterStop.requests.length === count0 + 1 && afterStop.chats.a.lastReply.stopped === true && afterStop.chats.a.lastReply.research?.mode === 'deep-research',
     { notes: stopped.notes, retry: stopped.retry, requests: afterStop.requests.length - count0, lastReply: afterStop.chats.a.lastReply });

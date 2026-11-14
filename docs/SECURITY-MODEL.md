@@ -123,6 +123,12 @@ every request in a tool loop. It:
 - Deep Research adds OpenAI's hosted `web_search` tool to one request, with
   `tool_choice: "required"`. The search runs on OpenAI's side; Kenlith
   fetches no web page itself.
+- It runs only with models in one built-in table (`src/research.js`). A model
+  is added only after review, never because the account's model list
+  includes it. With any other model the request is refused locally and
+  nothing is sent; Kenlith never switches the model. When OpenAI refuses web
+  search, the error shown may include OpenAI's own message, cut to 500
+  characters and passed through the same secret redaction as other errors.
 - A research request carries the question and the chat's text. Kenlith
   leaves out project excerpts, attached code and earlier answers that used
   project data, and it offers no project tool, command or proposal in that

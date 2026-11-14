@@ -1066,27 +1066,13 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       button.addEventListener('click', () => post('manageUsage'));
       return button;
     }
-    function showError(message, action, model) {
+    // 0.9.1 RC2: no model-offer button (DEC-PLANCHAT-044); a Deep Research
+    // model refusal is text only, and the Model selector is unchanged.
+    function showError(message, action) {
       const text = document.createElement('span');
       text.textContent = message || '';
       elements.error.replaceChildren(text);
       if (message && (action === 'manageUsage' || action === 'usagePaused')) elements.error.append(usageButton());
-      // 0.9.0: Deep Research is not verified for the selected model; the
-      // verified one is offered. Choosing it only selects it; nothing is sent.
-      if (message && action === 'researchModel' && model && typeof model.id === 'string' && [...elements.models.options].some((option) => option.value === model.id)) {
-        const use = document.createElement('button');
-        use.type = 'button';
-        use.className = 'action research-model-action';
-        use.textContent = 'Use ' + String(model.name || model.id);
-        use.addEventListener('click', () => {
-          elements.models.value = model.id;
-          elements.models.dispatchEvent(new Event('change', { bubbles: true }));
-          showError('');
-          elements.prompt.focus();
-          announce(String(model.name || model.id) + ' selected. Press Send to run Deep Research.');
-        });
-        elements.error.append(use);
-      }
       if (message && action === 'usagePaused') {
         const resume = document.createElement('button');
         resume.type = 'button';
@@ -1901,7 +1887,7 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
           }
           break;
         }
-        case 'error': showError(message.message, message.action, message.model); break;
+        case 'error': showError(message.message, message.action); break;
         case 'restoreDraft':
           // 0.9.0: a refused Send that carried Deep Research turns it back on,
           // only for that same text, and only into an empty message box.
