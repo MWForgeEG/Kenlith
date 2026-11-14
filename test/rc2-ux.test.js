@@ -16,20 +16,27 @@ const { getWebviewHtml } = require('../src/view');
 const root = path.join(__dirname, '..');
 const page = getWebviewHtml({ cspSource: 'vscode-resource:' }, { mode: 'panel' });
 
-test('RC2-1 the + menu holds only real Kenlith actions, each wired to an existing message', () => {
+// 0.9.0 replaces RC2-1's "no web search item": Deep Research is the one
+// addition (a menuitemcheckbox: it switches a mode, it posts nothing). Its
+// behaviour: test/deep-research.test.js. Everything else is unchanged.
+test('RC2-1 (0.9.0) the + menu holds only real Kenlith actions, each wired to an existing message', () => {
   const menu = /<div id="plusMenu"[^>]*role="menu"[^>]*>([\s\S]*?)<\/div>\s*<button id="attach"/.exec(page);
   assert.ok(menu, 'the menu is in the page');
-  const labels = [...menu[1].matchAll(/<span class="menu-label">([^<]+)<\/span>/g)].map((m) => m[1]);
-  assert.deepEqual(labels, ['Attach selection', 'Project sharing…', 'Project context settings…']);
+  const labels = [...menu[1].matchAll(/<span class="menu-label">([^<]+)(?:<span[^>]*>[^<]*<\/span>)?<\/span>/g)].map((m) => m[1]);
+  assert.deepEqual(labels, ['Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']);
   assert.equal((menu[1].match(/role="menuitem"/g) || []).length, 3);
+  assert.equal((menu[1].match(/role="menuitemcheckbox"/g) || []).length, 1);
+  assert.match(menu[1], /<button id="menuResearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false">/);
+  // Only the Deep Research item mentions the web.
+  assert.doesNotMatch(menu[1].replace(/<button id="menuResearch"[\s\S]*?<\/button>/, ''), /search the web|web search/i);
   // Each item posts a message the extension handles.
   assert.match(page, /menuAttach\.addEventListener\('click', fromMenu\(\(\) => \{ state\.attachFromView = true; post\('attachSelection'\); \}\)\)/);
   assert.match(page, /menuSharing\.addEventListener\('click', fromMenu\(\(\) => post\('manageProjectSharing'\)\)\)/);
   assert.match(page, /menuSettings\.addEventListener\('click', fromMenu\(\(\) => post\('openProjectSettings'\)\)\)/);
   const engine = fs.readFileSync(path.join(root, 'src', 'engine.js'), 'utf8');
   for (const type of ['attachSelection', 'manageProjectSharing', 'openProjectSettings']) assert.match(engine, new RegExp(`case '${type}':`), type);
-  // Nothing Kenlith cannot do: no file upload, web search, image or voice item.
-  assert.doesNotMatch(menu[1], /upload|attach files?|search the web|image|voice|camera/i);
+  // Nothing Kenlith cannot do: no file upload, image or voice item.
+  assert.doesNotMatch(menu[1], /upload|attach files?|image|voice|camera/i);
 });
 
 // 0.8.0 (DEC-PLANCHAT-040) replaces RC2-2's "no thinking-effort control": the
@@ -91,11 +98,14 @@ test('RC2-5 + Project context settings opens the editor Settings at kenlith.proj
   }
 });
 
-test('RC2-6 the editor tab icon is coloured (Signal Mint rings on Deep Forest), the Activity Bar icon stays single-colour', () => {
+// 0.9.0: the refined tab icon (lighter Signal Mint rings and a green rim);
+// the Activity Bar icon is unchanged.
+test('RC2-6 (0.9.0) the editor tab icon is coloured (Signal Mint rings on Deep Forest), the Activity Bar icon stays single-colour', () => {
   const svg = fs.readFileSync(path.join(root, 'media', 'chat-tab.svg'), 'utf8');
   assert.match(svg, /fill="#103D32"/);
-  assert.match(svg, /stroke="#7FD8A4"/);
+  assert.match(svg, /stroke="#B4F0CD"/);
+  assert.match(svg, /stroke="#2FA36B"/);
   const chat = fs.readFileSync(path.join(root, 'media', 'chat.svg'), 'utf8');
   assert.match(chat, /currentColor/);
-  assert.doesNotMatch(chat, /#7FD8A4|#103D32/i);
+  assert.doesNotMatch(chat, /#7FD8A4|#103D32|#B4F0CD|#2FA36B/i);
 });

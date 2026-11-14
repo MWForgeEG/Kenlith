@@ -84,7 +84,19 @@ class OpenAIService {
   // request (which keeps the effort) would fail too and use another request
   // of the plan without the user deciding. The failure is shown, with Default
   // offered (src/engine.js); with Default, the retry below applies as in 0.7.0.
-  async streamResponse({ model, request, signal, onDelta, preflight, onToolCalls, onToolsUnsupported }) {
+  //
+  // 0.9.0 Deep Research: a request with `research` (src/request-builder.js)
+  // is sent once with the hosted web_search tool and tool_choice "required".
+  // Its answer and citations are taken from the streamed events only
+  // (on the plan route `response.completed.output` can be empty), and
+  // `onResearch(event)` receives the observable steps:
+  //   { kind: 'search', id }                       a web search item started
+  //   { kind: 'searched', id, action, status }     it ended (action: search, open_page, find_in_page)
+  //   { kind: 'writing' }                          the answer message started
+  //   { kind: 'annotation', annotation }           a citation, as received (untrusted)
+  // Other events (reasoning items, response.metadata, anything new) are
+  // ignored. A research reply in which no web search completed fails.
+  async streamResponse({ model, request, signal, onDelta, preflight, onToolCalls, onToolsUnsupported, onResearch }) {
     let current = request;
     let accumulated = '';
     for (let round = 0; ; round += 1) {
@@ -93,7 +105,7 @@ class OpenAIService {
       }
       let result;
       try {
-        result = await this.#streamOnce({ model, request: current, signal, preflight, onDelta: (delta) => { accumulated += delta; onDelta(delta); } });
+        result = await this.#streamOnce({ model, request: current, signal, preflight, onResearch, onDelta: (delta) => { accumulated += delta; onDelta(delta); } });
       } catch (error) {
         if (round === 0 && !accumulated && current?.tools && !current.reasoning && error?.code === 'subscription_sharing_unsupported_capability') {
           this.toolsUnsupported = true;
@@ -112,13 +124,18 @@ class OpenAIService {
     }
   }
 
-  async #streamOnce({ model, request, signal, onDelta, preflight }) {
+  async #streamOnce({ model, request, signal, onDelta, preflight, onResearch }) {
     if (!isBuiltRequest(request)) {
       throw new Error('This request was not built by Kenlith\'s request builder. Nothing was sent.');
     }
     // 0.8.0: an effort is sent only to the model it was checked for.
     if (request.reasoning && request.reasoningModel !== model) {
       throw new Error('The thinking level was checked for another model. Nothing was sent.');
+    }
+    // 0.9.0: Deep Research only for the model it was checked for, and never
+    // together with project tools or excerpts.
+    if (request.research && (request.research.model !== model || request.tools || request.excerpts.length || request.requiresGate)) {
+      throw new Error('This Deep Research request was not built for this model or carries project context. Nothing was sent.');
     }
     if (request.requiresGate && !preflight) {
       throw new Error('Project context needs its last permission check before sending. Nothing was sent.');
@@ -150,6 +167,10 @@ class OpenAIService {
       payload.tools = request.tools.map((tool) => ({ ...tool }));
       payload.tool_choice = request.toolChoice || 'auto';
       payload.parallel_tool_calls = true;
+    } else if (request.research) {
+      // 0.9.0: exactly the two fields of the live-verified research request.
+      payload.tools = request.research.tools.map((tool) => ({ ...tool }));
+      payload.tool_choice = request.research.toolChoice;
     }
     // 0.7.0 RC3 (DEC-PLANCHAT-036): every command result in the complete
     // input passes the outbound boundary once more, just before it leaves
@@ -176,6 +197,8 @@ class OpenAIService {
     }
 
     let completed = false;
+    let searched = 0;
+    const research = request.research ? (event) => { try { onResearch?.(event); } catch { /* display only */ } } : undefined;
     const calls = new Map();
     const noteCall = (item) => {
       if (item?.type !== 'function_call' || typeof item.call_id !== 'string' || !item.call_id) return;
@@ -191,9 +214,23 @@ class OpenAIService {
       const type = event?.type || envelope.event;
       if (type === 'response.output_text.delta') {
         onDelta(String(event.delta || ''));
+      } else if (research && type === 'response.output_item.added') {
+        if (event.item?.type === 'web_search_call') research({ kind: 'search', id: String(event.item.id || '') });
+        else if (event.item?.type === 'message') research({ kind: 'writing' });
+      } else if (research && type === 'response.output_text.annotation.added') {
+        research({ kind: 'annotation', annotation: event.annotation });
       } else if (type === 'response.output_item.done') {
+        if (research && event.item?.type === 'web_search_call') {
+          const status = String(event.item.status || '');
+          if (status === 'completed') searched += 1;
+          const action = ['search', 'open_page', 'find_in_page'].includes(event.item.action?.type) ? event.item.action.type : 'other';
+          research({ kind: 'searched', id: String(event.item.id || ''), action, status });
+        }
         noteCall(event.item);
       } else if (type === 'response.completed') {
+        if (research && !searched) {
+          throw new RequestError('Deep Research ended without a completed web search, so this is not shown as a research answer. Kenlith did not retry.', { code: 'research-no-search' });
+        }
         completed = true;
         for (const item of Array.isArray(event?.response?.output) ? event.response.output : []) noteCall(item);
       } else if (type === 'response.failed') {

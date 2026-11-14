@@ -205,6 +205,12 @@ class ConversationStore {
           }
         }
       }
+      // 0.9.0: a Deep Research reply is marked from the start, so a run cut
+      // off by a quit is still known as one (and offered Retry). Its
+      // citations and counts are written when it ends (finishReply).
+      if (role === 'assistant' && details.research) {
+        message.research = { mode: 'deep-research' };
+      }
       // The user chose Send without project files (M1-4): shown on the reply.
       if (role === 'assistant' && details.withoutProjectFiles) {
         message.withoutProjectFiles = true;
@@ -534,7 +540,9 @@ class ConversationStore {
   // `activeGrant` ({ grantKeyId, consentId, policyVersion }): the grant
   // active for this request, if any. Which messages may be re-sent is decided
   // by src/provenance.js mayReplay().
-  async contextMessages(conversationId, limit = 30, maxCharacters = 80_000, { activeGrant } = {}) {
+  // 0.9.0: `withoutAttachmentReplies` (Deep Research) also leaves out replies
+  // to attached code that the user included in follow-ups.
+  async contextMessages(conversationId, limit = 30, maxCharacters = 80_000, { activeGrant, withoutAttachmentReplies = false } = {}) {
     await this.initialize();
     await this.#syncFromDisk();
     const conversation = conversationId
@@ -548,6 +556,7 @@ class ConversationStore {
     // Replies to attached code are left out unless the user included them (§5.1a).
     const messages = conversation.messages
       .filter((message) => ['user', 'assistant'].includes(message.role) && !message.error && message.content && mayReplay(message, activeGrant))
+      .filter((message) => !(withoutAttachmentReplies && (message.attachmentTurn || message.attachmentReply)))
       .slice(-Math.max(1, limit));
 
     const selected = [];

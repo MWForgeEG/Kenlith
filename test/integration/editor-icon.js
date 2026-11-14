@@ -58,11 +58,11 @@ const MEASURE = `(async (data) => {
   let best = bg, bestRatio = 1, strong = 0;
   for (const [k, n] of counts) { const r = ratio(rgb(k), rgb(bg)); if (r > bestRatio) { bestRatio = r; best = k; } if (r >= 3) strong += n; }
   const hex = (k) => '#' + k.toString(16).padStart(6, '0');
-  // 0.7.0: pixels close to the brand colours (Deep Forest tile, Signal Mint rings; DEC-PLANCHAT-034).
+  // 0.9.0: pixels close to the brand colours of the refined tab icon (Deep Forest tile, lighter Signal Mint rings, green rim; DEC-PLANCHAT-042; 0.7.0 used #7FD8A4 rings).
   const near = (k, target) => { const a = rgb(k), b = rgb(target); return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) <= 24; };
-  let tile = 0, rings = 0;
-  for (const [k, n] of counts) { if (near(k, 0x103d32)) tile += n; if (near(k, 0x7fd8a4)) rings += n; }
-  return { background: hex(bg), icon: hex(best), contrast: Math.round(bestRatio * 100) / 100, strongPixels: strong, tilePixels: tile, ringPixels: rings, ringsOnTile: Math.round(ratio(rgb(0x7fd8a4), rgb(0x103d32)) * 100) / 100, size: [c.width, c.height] };
+  let tile = 0, rings = 0, rim = 0;
+  for (const [k, n] of counts) { if (near(k, 0x103d32)) tile += n; if (near(k, 0xb4f0cd)) rings += n; if (near(k, 0x2fa36b)) rim += n; }
+  return { background: hex(bg), icon: hex(best), contrast: Math.round(bestRatio * 100) / 100, strongPixels: strong, tilePixels: tile, ringPixels: rings, rimPixels: rim, ringsOnTile: Math.round(ratio(rgb(0xb4f0cd), rgb(0x103d32)) * 100) / 100, size: [c.width, c.height] };
 })`;
 
 async function themeRun(theme) {
@@ -130,7 +130,7 @@ async function themeRun(theme) {
     const tabMeasure = await page.evaluate(`${MEASURE}(${JSON.stringify(tabIcon)})`);
     check(`${theme.name}: the drawn tab icon stands out from the tab (contrast ≥ ${MIN_CONTRAST}:1)`, tabMeasure.contrast >= MIN_CONTRAST && tabMeasure.strongPixels >= 20, tabMeasure);
     // DEC-PLANCHAT-033: the coloured Signal Rings, both brand colours drawn.
-    check(`${theme.name}: the drawn tab icon is the coloured Signal Rings (Deep Forest tile and green Signal Mint rings both drawn; rings on tile ${tabMeasure.ringsOnTile}:1)`, tabMeasure.tilePixels >= 40 && tabMeasure.ringPixels >= 20 && tabMeasure.ringsOnTile >= 3, { tile: tabMeasure.tilePixels, rings: tabMeasure.ringPixels });
+    check(`${theme.name}: the drawn tab icon is the coloured Signal Rings (Deep Forest tile and green Signal Mint rings both drawn; rings on tile ${tabMeasure.ringsOnTile}:1)`, tabMeasure.tilePixels >= 40 && tabMeasure.ringPixels >= 20 && tabMeasure.ringsOnTile >= 3, { tile: tabMeasure.tilePixels, rings: tabMeasure.ringPixels, rim: tabMeasure.rimPixels });
     if (info.activity) {
       const actIcon = await shot({ x: info.activity.x, y: info.activity.y, width: info.activity.w, height: info.activity.h }, 2);
       const actMeasure = await page.evaluate(`${MEASURE}(${JSON.stringify(actIcon)})`);

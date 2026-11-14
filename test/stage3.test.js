@@ -812,7 +812,7 @@ test('U22 downgrade read-back: 0.1.2, 0.1.1 and 0.1.0 keep attachment metadata a
 
 test('manifest: Attach Selection command, editor menu only with a selection, setting scoped to the user; version as decided (0.4.1)', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.equal(manifest.version, '0.8.0'); // Kenlith 0.8.0: Thinking effort on the 0.7.0 base
+  assert.equal(manifest.version, '0.9.0'); // Kenlith 0.9.0: Deep Research on the 0.8.0 base
   // WP-02 T02-05: the label names the product; no category, so the palette
   // does not read "Plan Chat: Attach Selection to Plan Chat".
   const attach = manifest.contributes.commands.find((command) => command.command === 'planChat.attachSelection');

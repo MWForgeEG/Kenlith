@@ -52,6 +52,35 @@ async function run(engine, context) {
         return next;
       } };
     }
+    // 0.9.0 Deep Research (test/integration/research-ui.js): a research
+    // request is answered by replaying the recorded live run-2 stream
+    // (PLAN_CHAT_IT_RESEARCH_FIXTURE) through the engine's own callbacks;
+    // nothing leaves the computer. "HANG" stops after the first search and
+    // waits until the run is stopped.
+    entry.research = Boolean(options.request?.research);
+    entry.researchTools = options.request?.research ? options.request.research.tools : null;
+    entry.researchToolChoice = options.request?.research ? options.request.research.toolChoice : null;
+    if (options.request?.research && process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE) {
+      if (options.preflight) await options.preflight();
+      const fixture = JSON.parse(fs.readFileSync(process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE, 'utf8'));
+      const aborted = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
+      const hang = options.messages.at(-1).content.includes('HANG');
+      let text = '';
+      let searches = 0;
+      for (const event of fixture.events) {
+        if (options.signal.aborted) throw aborted();
+        const item = event.item || {};
+        if (event.type === 'response.output_item.added' && item.type === 'web_search_call') options.onResearch?.({ kind: 'search', id: item.id });
+        else if (event.type === 'response.output_item.done' && item.type === 'web_search_call') {
+          options.onResearch?.({ kind: 'searched', id: item.id, action: item.action.type, status: item.status });
+          searches += 1;
+          if (hang && searches === 1) await new Promise((resolve, reject) => { if (options.signal.aborted) reject(aborted()); options.signal.addEventListener('abort', () => reject(aborted())); });
+        } else if (event.type === 'response.output_item.added' && item.type === 'message') options.onResearch?.({ kind: 'writing' });
+        else if (event.type === 'response.output_text.delta') { text += event.delta; options.onDelta(event.delta); } else if (event.type === 'response.output_text.annotation.added') options.onResearch?.({ kind: 'annotation', annotation: event.annotation });
+        await sleep(event.type.startsWith('response.web_search_call') || event.type.startsWith('response.output_item') ? 120 : 8);
+      }
+      return text;
+    }
     if (options.messages.at(-1).content.includes('HANG')) {
       if (options.preflight) await options.preflight();
       options.onDelta('This reply is cut off by the restart. ');
@@ -110,7 +139,12 @@ async function run(engine, context) {
               result.chats[key] = { title: chat.title, model: chat.model, reasoningEffort: chat.reasoningEffort, messages: chat.messages.length };
             }
             // 0.8.0: what the (fake) transport received, synthetic text only.
-            result.requests = requests.map((entry) => ({ model: entry.model, effort: entry.effort, question: entry.question }));
+            result.requests = requests.map((entry) => ({ model: entry.model, effort: entry.effort, question: entry.question, research: entry.research, researchTools: entry.researchTools, researchToolChoice: entry.researchToolChoice, tools: entry.tools }));
+            // 0.9.0: the stored research record of each chat's last reply.
+            for (const [key, id] of Object.entries({ a: a.id, h: h.id })) {
+              const last = (await store.getConversation(id)).messages.filter((m) => m.role === 'assistant').at(-1);
+              result.chats[key].lastReply = last ? { research: last.research || null, stopped: Boolean(last.stopped), error: Boolean(last.error), interrupted: Boolean(last.interrupted), chars: (last.content || '').length } : null;
+            }
           }
           await sleep(request.wait || 600);
           result.tabs = tabs();

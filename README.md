@@ -65,6 +65,9 @@ approval.
 - **Model selection** per chat.
 - **Thinking Effort** per chat: **Default**, **Low**, **Medium**, **High**,
   **Extra High** or **Max**. Default lets the model use its own level.
+- **Deep Research** for your next message: ChatGPT searches the public web
+  with OpenAI's hosted web search and answers with numbered citations and a
+  **Sources** list. It never carries project files or attached code.
 - **Arabic and right-to-left text** in messages, replies and the composer.
 - **Persistent local conversations.** Chats and unsent drafts are saved on
   your computer, separate from chatgpt.com.
@@ -115,10 +118,10 @@ From a terminal:
 
 ```shell
 # VS Code
-code --install-extension kenlith-antigravity-0.8.0.vsix
+code --install-extension kenlith-antigravity-0.9.0.vsix
 
 # Antigravity IDE
-antigravity-ide --install-extension kenlith-antigravity-0.8.0.vsix
+antigravity-ide --install-extension kenlith-antigravity-0.9.0.vsix
 ```
 
 The same `.vsix` works in both editors; `antigravity` in the file name and the
@@ -175,6 +178,11 @@ In short (details in [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md)):
 - **Output filtering.** Before command output is sent, Kenlith removes
   credential-like text, private keys, values from your secret files, long
   random-looking strings and paths outside the project.
+- **Deep Research is public web research only.** A research request carries
+  your question and the chat's text. It never carries project files,
+  attached code or earlier answers based on them, and it offers no project
+  tools. Web pages and citations are treated as data, and links open only
+  after you confirm the address.
 - **Workspace Trust.** Kenlith does not run in Restricted Mode (a folder you
   have not marked as trusted in the editor).
 - **Not a sandbox.** Commands that Kenlith runs are ordinary processes on
@@ -198,6 +206,19 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
   levels only for models in its built-in list, which follows OpenAI's model
   documentation. Other models offer Default only. Thinking Effort has been
   verified live on `gpt-6.1-sol` only.
+- **Deep Research is live-verified with GPT-6-Astra only.** With another
+  model Kenlith sends nothing and offers GPT-6-Astra.
+- **Deep Research runs in the foreground.** Closing the editor ends a run;
+  the reply is kept as interrupted and offers **Retry**. There is no
+  background research.
+- **Markdown tables are shown as raw Markdown**, in research answers as in
+  other replies.
+- **Arabic paragraphs that begin with a Latin word** (for example a product
+  name) may be laid out left to right.
+- **Citation positions.** OpenAI's citation offsets can be read as UTF-16
+  units or as code points, and live testing did not show which one applies.
+  Kenlith maps them defensively: a citation it cannot place exactly on a link
+  to its address is listed under **Sources** only.
 - **Screen readers.** The interface has named controls, keyboard navigation
   and visible focus, but it has not been validated with a screen reader.
 - **No marketplace install.** Kenlith is installed from a `.vsix` file only.

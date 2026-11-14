@@ -22,6 +22,7 @@ Those records are not part of this repository. This page and the
   project context            request building                 storage
   project-context.js         request-builder.js               store.js (chats)
   retrieval.js               provenance.js, budget.js         drafts.js, consent.js
+                             research.js, citations.js
   project-tools.js           reasoning.js (Thinking)          proposal-store.js
   workspace-safety.js        context-gate.js                  exec-store.js
          │                         │                          lock.js, lease.js
@@ -47,6 +48,7 @@ Those records are not part of this repository. This page and the
 | UI | `view.js`, `panels.js`, `sidebar.js`, `markdown.js` | Chat webview, editor tabs, side bar trees, safe Markdown rendering |
 | Conversation | `engine.js` | The one place in a window that sends messages, streams replies and holds pending cards |
 | Requests | `request-builder.js`, `budget.js`, `provenance.js`, `reasoning.js`, `openai.js`, `sse.js` | The only producer of a model request. Applies the size bound and provenance filtering of earlier replies, sets the Thinking level, runs the tool loop, parses streaming |
+| Deep Research | `research.js`, `citations.js` | The verified research models, instructions and time limit; mapping OpenAI's citation annotations onto the answer text and building Sources |
 | Project awareness | `project.js`, `project-context.js`, `retrieval.js`, `project-tools.js`, `glob.js` | Project identity, bounded listing and excerpt selection, the read-only tools, exclude-setting matching |
 | Boundaries | `workspace-safety.js`, `context-gate.js`, `consent.js`, `attachments.js` | Contained reads and withheld files, the checks before and after retrieval, sharing permissions, attached selections |
 | Review Before Apply | `proposal.js`, `proposal-review.js`, `proposal-store.js`, `proposal-apply.js` | Validating proposals, their review lifecycle and storage, and the only file writer |

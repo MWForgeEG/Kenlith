@@ -1,6 +1,6 @@
 # Kenlith user guide
 
-This guide covers Kenlith 0.8.0. For installation, see the
+This guide covers Kenlith 0.9.0. For installation, see the
 [README](../README.md#installation).
 
 - [What is sent, and what is not](#what-is-sent-and-what-is-not)
@@ -8,6 +8,7 @@ This guide covers Kenlith 0.8.0. For installation, see the
 - [The workspace](#the-workspace)
 - [The chat tab and composer](#the-chat-tab-and-composer)
 - [Thinking](#thinking)
+- [Deep Research](#deep-research)
 - [Chats per project](#chats-per-project)
 - [Attaching code](#attaching-code)
 - [Project context](#project-context)
@@ -29,6 +30,9 @@ This guide covers Kenlith 0.8.0. For installation, see the
   - in a project chat you allowed to share, short excerpts of that project's
     files and the results of Kenlith's project tools;
   - the cleaned output of commands Kenlith ran for that chat.
+- A **Deep Research** request sends your question and the chat's text only,
+  with OpenAI's hosted web search turned on. It never sends project files,
+  attached code or earlier answers based on them.
 - Signing in does not give Kenlith access to your ChatGPT history, memory,
   projects or API keys.
 - Kenlith never reads browser cookies or other apps' sign-in caches.
@@ -75,7 +79,8 @@ This guide covers Kenlith 0.8.0. For installation, see the
 
 - **At the top**, one compact line names the project and its state: **not
   shared**, **shared** or **files off**. The tab title is the chat title. The
-  editor tab shows the coloured Signal Rings icon.
+  editor tab shows the coloured Signal Rings icon: two rings with an open
+  centre on a rimmed Deep Forest tile.
 - **At the bottom**, the composer holds everything for writing:
   - the message box;
   - **+**;
@@ -86,6 +91,7 @@ This guide covers Kenlith 0.8.0. For installation, see the
   **Enter** sends, **Shift+Enter** adds a line, and **Stop** appears while a
   reply arrives.
 - **+** lists what you can add or change for this chat:
+  - **Deep Research** (see [Deep Research](#deep-research));
   - **Attach selection**;
   - **Project sharing…**;
   - **Project context settings…**, which turn project files, tools, proposed
@@ -123,6 +129,35 @@ How it works:
 - `kenlith.reasoning.defaultEffort` (user settings) sets the level for chats
   where you have not chosen one. A level chosen in a chat always wins,
   including Default.
+
+## Deep Research
+
+**Deep Research**, in **+**, has ChatGPT search the public web for your next
+message and answer with cited sources.
+
+- When it is on, a **Deep Research** chip sits above the message box. Select
+  the chip, or the menu item again, to turn it off. It applies to one
+  message, then turns off.
+- The request uses OpenAI's hosted web search, and a search always runs. It
+  uses the model and Thinking level you chose. Deep Research is verified with
+  **GPT-6-Astra**; with another model Kenlith sends nothing and offers **Use
+  GPT-6-Astra**.
+- While it runs, the reply shows what is happening: *Searching the web…*,
+  *Reading sources…*, *Synthesizing…*, with the number of searches and pages
+  read. The model's reasoning is never shown.
+- The answer has numbered citations with the site's domain, and a
+  **Sources** list with each cited page once. Like every link, a citation
+  opens only after you confirm its full address.
+- The answer, its citations and its sources are saved with the chat and come
+  back after a restart.
+- **Stop** ends the run, and the reply says it stopped. If the editor closes
+  during a run, the reply shows as interrupted. A run ends after 20 minutes.
+  In each case **Retry** puts the question back in the message box with Deep
+  Research on; nothing is sent until you press **Send**.
+- A research request carries your question and the chat's text only. It
+  never carries project files, attached code or earlier answers based on
+  them, offers no project tools, and never asks for project sharing. Deep
+  Research with attached code is refused.
 
 ## Chats per project
 
@@ -379,7 +414,14 @@ Sign-in tokens are kept separately, in the editor's secure `SecretStorage`.
   files, including common encodings. It cannot detect every transformed or
   reworded secret.
 - **Thinking levels** come from a static, built-in model table.
-- **Markdown in replies** is a subset. Tables are not rendered.
+- **Markdown in replies** is a subset. Tables are shown as raw Markdown.
+- **Deep Research** is live-verified with GPT-6-Astra only, and it runs in
+  the foreground: closing the editor ends a run.
+- **Arabic paragraphs that begin with a Latin word** may be laid out left to
+  right.
+- **Citation positions** are mapped defensively, because OpenAI's offsets
+  can be read as UTF-16 units or code points. A citation Kenlith cannot place
+  exactly is listed under **Sources** only.
 - **Other extensions** running in the same editor can read files on your
   computer, including Kenlith's storage folder. Install only extensions you
   trust.

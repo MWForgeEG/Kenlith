@@ -187,7 +187,7 @@ test('navigation: no brand line, no second New Chat, no email in the header', ()
   assert.equal(manifest.contributes.viewsContainers.activitybar[0].title, 'Kenlith');
   assert.deepEqual(manifest.contributes.views.planChat.map((view) => [view.id, view.name]), [['planChat.account', 'Account'], ['planChat.sidebar', 'Chats']]);
   assert.equal(manifest.contributes.views.planChat.some((view) => view.type === 'webview'), false, 'the side bar has no chat webview');
-  assert.equal(manifest.version, '0.8.0'); // Kenlith 0.8.0
+  assert.equal(manifest.version, '0.9.0'); // Kenlith 0.9.0
 });
 
 test('history: the Quick Pick lists every chat by id and switches to the chosen one', async () => {

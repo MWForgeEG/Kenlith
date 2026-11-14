@@ -5,6 +5,67 @@ kept for reference; the release packages of versions before 0.8.0 are not
 published in this repository. Entries before 0.4.1 use the earlier setting
 names (`planChat.*`); the settings are now `kenlith.*`.
 
+## 0.9.0 (2026-11-14)
+
+**Summary.** Deep Research: ask a question, Kenlith has ChatGPT search the
+public web and answers with cited sources. Also a refined editor tab icon.
+
+- **Deep Research**, in the **+** menu. While it is on, a small **Deep
+  Research** chip sits above the message box; select it (or the menu item
+  again) to turn it off. It applies to the next message only.
+- **Real web search.** The request uses OpenAI's hosted `web_search` tool
+  with `tool_choice: "required"`, so a search always runs. It uses the model
+  and Thinking level you chose. Deep Research is verified with **GPT-6-Astra**
+  on the ChatGPT plan route; with another model Kenlith sends nothing and
+  offers **Use GPT-6-Astra**.
+- **Progress** from what actually happens: *Searching the web…*, *Reading
+  sources…*, *Synthesizing…*, with the number of searches and pages read.
+  No percentages, and none of the model's reasoning is shown.
+- **Citations.** Each citation in the answer is a link with a number and the
+  site's domain, taken from OpenAI's citation data, not from the answer's
+  own text. Links open only after you confirm the full address, as before.
+  **Sources** lists each cited page once, with title, domain and address.
+  The answer and its citations are saved with the chat (a new, optional
+  field) and come back after a restart.
+- **Stop, interruptions and errors.** Stop ends the research request; the
+  reply says it stopped and did not continue. If the editor closes during a
+  run, the reply shows as interrupted: the research did not continue in the
+  background. **Retry** puts the question back in the message box with Deep
+  Research on; nothing is sent until you press Send. A run ends after 20
+  minutes. Refusals, usage limits and network failures are shown as such;
+  Kenlith never retries on its own and never substitutes an answer without
+  the web.
+- **Only public web research.** A Deep Research request carries your
+  question and the chat's text. It never carries project files, attached
+  code or earlier answers that used project files, offers no project tools,
+  and never shows the sharing card. Web pages are treated as data.
+- **Editor tab icon:** two Signal Mint rings with an open centre on the Deep
+  Forest tile, with a green rim, drawn for 16 to 20 px. The Activity Bar icon
+  is unchanged.
+- Unchanged: ordinary messages (no web search unless you choose Deep
+  Research), sign-in, project sharing, Review Before Apply, commands,
+  Thinking, Workspace Trust.
+
+**Known limitations.**
+
+- **Deep Research is live-verified with GPT-6-Astra only.** With another
+  model Kenlith sends nothing and offers GPT-6-Astra.
+- **Deep Research runs in the foreground.** Closing the editor ends a run;
+  the reply is kept as interrupted and offers **Retry**. There is no
+  background research.
+- **Markdown tables are shown as raw Markdown**, in research answers as in
+  other replies.
+- **Arabic paragraphs that begin with a Latin word** (for example a product
+  name) may be laid out left to right.
+- **Citation positions.** OpenAI's citation offsets can be read as UTF-16
+  units or as code points, and live testing did not show which one applies.
+  Kenlith maps them defensively: a citation it cannot place exactly on a link
+  to its address is listed under **Sources** only.
+
+The `CHANGELOG.md` inside the 0.9.0 package still carries the heading
+"0.9.0 (release candidate, not released)": the release package is a byte
+copy of the accepted release candidate.
+
 ## 0.8.0 (2026-11-13)
 
 **Summary.** Thinking effort: choose how much the model reasons for the next

@@ -309,14 +309,14 @@ async function main() {
     await sleep(300);
     await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
     await sleep(200);
-    const menu = await inChat(a, "(() => { const m = d.getElementById('plusMenu'); const r = m.getBoundingClientRect(); const vw = d.documentElement.clientWidth; const vh = d.documentElement.clientHeight; const items = [...m.querySelectorAll('[role=menuitem]')]; const cs = (e) => w.getComputedStyle(e); return { open: !m.classList.contains('hidden'), expanded: d.getElementById('plus').getAttribute('aria-expanded'), focused: d.activeElement && d.activeElement.id, labels: items.map((i) => i.querySelector('.menu-label').textContent), inside: r.left >= -1 && r.right <= vw + 1 && r.top >= -1 && r.bottom <= vh + 1, fg: cs(items[1]).color, desc: cs(items[1].querySelector('.menu-desc')).color, descOpacity: cs(items[1].querySelector('.menu-desc')).opacity, bg: cs(m).backgroundColor, itemBg: cs(items[1]).backgroundColor, page: cs(d.body).backgroundColor }; })()");
+    const menu = await inChat(a, "(() => { const m = d.getElementById('plusMenu'); const r = m.getBoundingClientRect(); const vw = d.documentElement.clientWidth; const vh = d.documentElement.clientHeight; const items = [...m.querySelectorAll('[role=menuitem], [role=menuitemcheckbox]')]; const cs = (e) => w.getComputedStyle(e); return { open: !m.classList.contains('hidden'), expanded: d.getElementById('plus').getAttribute('aria-expanded'), focused: d.activeElement && d.activeElement.id, labels: items.map((i) => i.querySelector('.menu-label').textContent.replace('✓', '').trim()), inside: r.left >= -1 && r.right <= vw + 1 && r.top >= -1 && r.bottom <= vh + 1, fg: cs(items[1]).color, desc: cs(items[1].querySelector('.menu-desc')).color, descOpacity: cs(items[1].querySelector('.menu-desc')).opacity, bg: cs(m).backgroundColor, itemBg: cs(items[1]).backgroundColor, page: cs(d.body).backgroundColor }; })()");
     const menuBg = over(parseColor(menu.bg) || parseColor(menu.page), parseColor(menu.page));
     const ib = parseColor(menu.itemBg);
     const mbg = ib && ib.a > 0 ? over(ib, menuBg) : menuBg;
     const textRatio = ratio(over(parseColor(menu.fg), mbg), mbg);
     const descRatio = ratio(over(parseColor(menu.desc), mbg, Number(menu.descOpacity)), mbg);
-    check(`${tag}: Enter opens the + menu with only real actions, focus on the first, inside the page; text ≥ 4.5:1`, menu.open && menu.expanded === 'true' && menu.focused === 'menuAttach'
-      && JSON.stringify(menu.labels) === JSON.stringify(['Attach selection', 'Project sharing…', 'Project context settings…']) && menu.inside && textRatio >= 4.5 && descRatio >= 4.5, { ...menu, textRatio, descRatio });
+    check(`${tag}: Enter opens the + menu with only real actions, focus on the first, inside the page; text ≥ 4.5:1`, menu.open && menu.expanded === 'true' && menu.focused === 'menuResearch'
+      && JSON.stringify(menu.labels) === JSON.stringify(['Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']) && menu.inside && textRatio >= 4.5 && descRatio >= 4.5, { ...menu, textRatio, descRatio });
     await input.press('ArrowDown');
     const second = await inChat(a, "d.activeElement && d.activeElement.id");
     await input.press('ArrowUp');
@@ -325,7 +325,7 @@ async function main() {
     await input.press('Escape');
     await sleep(200);
     const closed = await inChat(a, "({ open: !d.getElementById('plusMenu').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id, expanded: d.getElementById('plus').getAttribute('aria-expanded') })");
-    check(`${tag}: arrows move through the menu (wrapping); Escape closes it and returns focus to +`, second === 'menuSharing' && wrapped === 'menuSettings' && !closed.open && closed.focused === 'plus' && closed.expanded === 'false', { second, wrapped, closed });
+    check(`${tag}: arrows move through the menu (wrapping); Escape closes it and returns focus to +`, second === 'menuAttach' && wrapped === 'menuSettings' && !closed.open && closed.focused === 'plus' && closed.expanded === 'false', { second, wrapped, closed });
     a.web.close();
   }
 

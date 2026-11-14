@@ -260,7 +260,8 @@
   // Longest link label looked at; a longer one stays text.
   const MAX_LABEL = 1000;
   const BACKTICKS = /`+/y;
-  const BARE_URL = /https?:\/\/[^\s<>"]+/iy;
+  // 0.9.0: a bare address ends at a private-use character (a citation token).
+  const BARE_URL = /https?:\/\/[^\s<>"\uE000-\uF8FF]+/iy;
   const AUTOLINK = /<(https?:\/\/[^\s<>]+)>/iy;
 
   function matchAt(pattern, text, index) {
@@ -528,6 +529,8 @@
   const BIDI_CONTROL = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
 
   function appendCodeText(doc, parent, text) {
+    // 0.9.0: inside code a citation is not drawn; its covered text comes back.
+    if (citeContext) text = restoreCites(text);
     let last = 0;
     for (const match of text.matchAll(BIDI_CONTROL)) {
       if (match.index > last) parent.append(doc.createTextNode(text.slice(last, match.index)));
@@ -555,11 +558,13 @@
     for (const node of nodes) {
       switch (node.type) {
         case 'text':
-          parent.append(doc.createTextNode(node.text));
+          if (citeContext && node.text.includes(CITE_OPEN)) appendCitedText(doc, parent, node.text, (part) => doc.createTextNode(part));
+          else parent.append(doc.createTextNode(node.text));
           break;
         case 'ltr': {
           const span = element(doc, 'span', { dir: 'ltr', class: 'ltr' });
-          span.textContent = node.text;
+          if (citeContext && node.text.includes(CITE_OPEN)) appendCitedText(doc, span, node.text, (part) => doc.createTextNode(part));
+          else span.textContent = node.text;
           parent.append(span);
           break;
         }
@@ -604,6 +609,7 @@
   }
 
   function renderCode(doc, parent, text, lang) {
+    if (citeContext) text = restoreCites(text);
     const block = element(doc, 'div', { class: 'code-block', dir: 'ltr' });
     const head = element(doc, 'div', { class: 'code-head' });
     const label = element(doc, 'span', { class: 'code-lang' });
@@ -667,6 +673,188 @@
     }
   }
 
+  // ---------- citations (Kenlith 0.9.0 Deep Research) ----------
+  //
+  // A citation is { url, title, start, end }: a URL citation annotation from
+  // OpenAI, already mapped by the host (src/citations.js) to UTF-16 offsets
+  // in the stored text, or without offsets when its place could not be
+  // proven. The annotation is the authority: the text it covers (the model's
+  // own Markdown link, in the live evidence) is replaced by a citation built
+  // only from the annotation's URL and title. Nothing in the covered text or
+  // the title is interpreted as HTML.
+
+  const MAX_CITATIONS = 200;
+  const MAX_TITLE = 300;
+  const CITE_OPEN = '\uE000';
+  const CITE_CLOSE = '\uE001';
+  const CITE_BASE = 0xE100;
+  const CITE_TOKEN = /\uE000([\uE100-\uE1FF])\uE001/g;
+  const PRIVATE_MARKS = /[\uE000\uE001\uE100-\uE1FF]/g;
+
+  // The same page under different tracking parameters or fragments is one
+  // source. Only `utm_*` parameters and the fragment are dropped.
+  function citationKey(raw) {
+    const href = safeUrl(raw);
+    if (!href) return undefined;
+    const url = new URL(href);
+    url.hash = '';
+    for (const name of [...url.searchParams.keys()]) {
+      if (/^utm_/i.test(name)) url.searchParams.delete(name);
+    }
+    if (![...url.searchParams.keys()].length) url.search = '';
+    return url.href;
+  }
+
+  function hostOf(raw) {
+    const href = safeUrl(raw);
+    if (!href) return '';
+    return new URL(href).hostname.replace(/^www\./, '');
+  }
+
+  // Plain, bounded title text: no control or directional characters.
+  function cleanTitle(raw) {
+    const text = String(raw ?? '').replace(/[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim();
+    const characters = Array.from(text);
+    return characters.length > MAX_TITLE ? `${characters.slice(0, MAX_TITLE - 1).join('')}…` : characters.join('');
+  }
+
+  // Whether `span` (the text an annotation covers) is exactly a citation of
+  // the annotation's URL: a Markdown link to it, or the bare address, either
+  // optionally in parentheses, with nothing else. A range that is off by
+  // even one character does not pass, so a wrong offset unit is never
+  // accepted by accident.
+  // Each form is anchored at both ends, and a wrapping parenthesis counts
+  // only as a pair. In the wrapped forms the address is the shortest match
+  // that leaves exactly the wrapper's ")" (so an address ending in a
+  // parenthesised part keeps it); in the plain forms it runs to the last ")".
+  const CITATION_SPANS = [
+    /^\(\s*\[[^\]\n]*\]\(\s*<?(https?:\/\/[^\s<>]+?)>?\s*\)\s*\)$/i,
+    /^\[[^\]\n]*\]\(\s*<?(https?:\/\/[^\s<>]+?)>?\s*\)$/i,
+    /^\(\s*<?(https?:\/\/[^\s<>]+?)>?\s*\)$/i,
+    /^<(https?:\/\/[^\s<>]+)>$/i,
+    /^(https?:\/\/[^\s<>]+)$/i
+  ];
+  // The address in the span must be the annotation's address exactly (as a
+  // parsed http(s) URL): the citation key is for deduplication only.
+  function spanCarries(span, url) {
+    const href = safeUrl(url);
+    if (!href || typeof span !== 'string' || !span || span !== span.trim() || span.length > MAX_URL_LENGTH + 400) return false;
+    return CITATION_SPANS.some((pattern) => {
+      const match = pattern.exec(span);
+      return Boolean(match && safeUrl(match[1]) === href);
+    });
+  }
+
+  // Citations that are safe to place in `text`: valid offsets, not splitting
+  // a surrogate pair, carrying their URL, and not overlapping an earlier one.
+  function placeable(text, citations) {
+    const placed = [];
+    for (const citation of (Array.isArray(citations) ? citations : []).slice(0, MAX_CITATIONS)) {
+      const { start, end } = citation || {};
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start || end > text.length) continue;
+      if (/[\uDC00-\uDFFF]/.test(text[start] || '') || /[\uD800-\uDBFF]/.test(text[end - 1] || '')) continue;
+      if (!spanCarries(text.slice(start, end), citation.url)) continue;
+      placed.push(citation);
+    }
+    placed.sort((a, b) => a.start - b.start);
+    // Overlaps: compared with the last citation kept, not just the previous one.
+    const kept = [];
+    for (const citation of placed) if (!kept.length || citation.start >= kept.at(-1).end) kept.push(citation);
+    return kept;
+  }
+
+  // Citation tokens back to the text they replaced (inside code).
+  function restoreCites(text) {
+    return String(text).replace(CITE_TOKEN, (token, mark) => citeContext.tokens[mark.charCodeAt(0) - CITE_BASE]?.original ?? '');
+  }
+
+  // The Sources list: one entry per cited page, in order of first citation
+  // in the text, then those without a proven place. Only annotation data.
+  function citationSources(text, citations) {
+    const list = (Array.isArray(citations) ? citations : []).slice(0, MAX_CITATIONS);
+    const placed = new Set(placeable(String(text ?? ''), list));
+    const ordered = [...list.filter((c) => placed.has(c)).sort((a, b) => a.start - b.start), ...list.filter((c) => !placed.has(c))];
+    const sources = [];
+    const byKey = new Map();
+    for (const citation of ordered) {
+      const key = citationKey(citation?.url);
+      if (!key) continue;
+      if (!byKey.has(key)) {
+        const source = { n: sources.length + 1, key, url: safeUrl(citation.url), title: cleanTitle(citation.title) || hostOf(citation.url), host: hostOf(citation.url) };
+        byKey.set(key, source);
+        sources.push(source);
+      }
+    }
+    return { sources, byKey };
+  }
+
+  // Set while renderCited() renders; read by renderInline() and code text.
+  let citeContext = null;
+
+  function citationElement(doc, source) {
+    const link = element(doc, 'a', {
+      href: source.url,
+      class: 'citation',
+      dir: 'ltr',
+      title: `${source.title} — ${source.url}`,
+      'aria-label': `Source ${source.n}: ${source.title}, ${source.host}`
+    });
+    const number = element(doc, 'span', { class: 'citation-n' });
+    number.textContent = String(source.n);
+    const host = element(doc, 'span', { class: 'citation-host' });
+    host.textContent = source.host;
+    link.append(number, host);
+    return link;
+  }
+
+  // Text that may hold citation tokens: tokens become citation links; any
+  // other private-use mark was removed before parsing.
+  function appendCitedText(doc, parent, text, wrap) {
+    let last = 0;
+    for (const match of text.matchAll(CITE_TOKEN)) {
+      if (match.index > last) parent.append(wrap(text.slice(last, match.index)));
+      const source = citeContext.tokens[match[1].charCodeAt(0) - CITE_BASE];
+      if (source) parent.append(citationElement(doc, source));
+      last = match.index + match[0].length;
+    }
+    if (last < text.length) parent.append(wrap(text.slice(last)));
+  }
+
+  // A Deep Research answer: the Markdown text with each placed citation's
+  // covered text replaced by a citation link. Citations that cannot be
+  // placed safely leave the text as it is (they still appear in Sources).
+  function renderCited(doc, text, citations) {
+    const source = String(text ?? '');
+    if (source.length > MAX_MARKDOWN_LENGTH) return renderPlain(doc, source);
+    const { byKey } = citationSources(source, citations);
+    const placed = placeable(source, citations);
+    if (!placed.length) return render(doc, source);
+    const tokens = [];
+    let marked = '';
+    let last = 0;
+    for (const citation of placed) {
+      const entry = byKey.get(citationKey(citation.url));
+      marked += source.slice(last, citation.start).replace(PRIVATE_MARKS, '\uFFFD');
+      if (entry && tokens.length < 0x100) {
+        marked += CITE_OPEN + String.fromCharCode(CITE_BASE + tokens.length) + CITE_CLOSE;
+        // The covered text is kept for code, where a citation is not drawn.
+        tokens.push({ ...entry, original: source.slice(citation.start, citation.end).replace(PRIVATE_MARKS, '\uFFFD') });
+      } else {
+        marked += source.slice(citation.start, citation.end).replace(PRIVATE_MARKS, '\uFFFD');
+      }
+      last = citation.end;
+    }
+    marked += source.slice(last).replace(PRIVATE_MARKS, '\uFFFD');
+    const fragment = doc.createDocumentFragment();
+    citeContext = { tokens };
+    try {
+      renderBlocks(doc, fragment, parse(marked));
+    } finally {
+      citeContext = null;
+    }
+    return fragment;
+  }
+
   // Markdown message (assistant replies).
   function render(doc, text) {
     if (String(text ?? '').length > MAX_MARKDOWN_LENGTH) return renderPlain(doc, text);
@@ -704,5 +892,5 @@
     return fragment;
   }
 
-  return { parse, parseInline, render, renderPlain, safeUrl, firstStrongDirection, ALLOWED_ATTRIBUTES };
+  return { parse, parseInline, render, renderPlain, renderCited, citationSources, citationKey, cleanTitle, hostOf, spanCarries, placeable, safeUrl, firstStrongDirection, ALLOWED_ATTRIBUTES, MAX_CITATIONS };
 });

@@ -2,7 +2,7 @@
   "name": "plan-chat-antigravity",
   "displayName": "Kenlith",
   "description": "An unofficial, local chat client for Antigravity that uses OpenAI's official Sign in with ChatGPT flow without an API key.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "publisher": "local-open-source",
   "license": "MIT",
   "icon": "media/icon.png",

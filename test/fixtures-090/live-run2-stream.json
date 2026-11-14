@@ -1,0 +1,1054 @@
+{
+ "source": "feasibility run 2, 2026-11-14 (rebuilt from recorded evidence)",
+ "text": "**حتى 13 نوفمبر 2026**، وبالاعتماد على المصادر الرسمية لثلاث جهات مستقلة: Node.js وDeno وBun:\n\n**Node.js:** أحدث إصدار مستقر هو **26.13.1 ‏(LTS)**، وصدر في **11 نوفمبر 2026**؛ أما الإصدار 27 فما يزال تجريبيًا «Alpha». ([nodejs.org](https://nodejs.org/en/download)) يستمر الدعم النشط لسلسلة **26.x** حتى **20 أكتوبر 2027**، ثم دعم الصيانة حتى **30 أبريل 2029**؛ أي نحو ثلاث سنوات من إطلاق السلسلة في **5 مايو 2026**، مع ضرورة تثبيت تحديثاتها. وابتداءً من الإصدار 27، يصبح الجدول سنويًا: ستة أشهر Alpha، ثم ستة أشهر Current، ثم 30 شهرًا من الدعم طويل الأجل. ([github.com](https://github.com/nodejs/Release))\n\n**Deno:** أحدث إصدار مستقر هو **2.9.8**، وصدر في **21 أكتوبر 2026**. ([github.com](https://github.com/denoland/deno/releases)) الإعلان الأحدث، المؤرخ **9 أكتوبر 2026**، يعد بتحديثات شهرية للأخطاء والأمان لمدة سنة إضافية، أي حتى **نحو أكتوبر 2027**، ثم ينتهي تطوير الفريق لبيئة التشغيل. ([deno.com](https://deno.com/blog/cloudflare)) توجد ملاحظة مهمة: الوثائق الأقدم ما زالت تعرض إصدارًا فرعيًا كل 12 أسبوعًا، ودعم LTS لسلسلة 2.9 من **1 يوليو 2026 إلى 31 يناير 2027**؛ لذلك ينبغي التمييز بين موعد LTS الموثّق والتعهد الأحدث بصيانة المشروع، الذي لا يحدد يوم انتهاء دقيقًا. ([docs.deno.com](https://docs.deno.com/runtime/fundamentals/stability_and_releases/?utm_source=openai))\n\n**Bun:** أحدث إصدار مستقر هو **1.4.4**، وصدر في **22 أكتوبر 2026**. ويُظهر سجل الإصدارات وتيرة غير منتظمة، لا دورة زمنية ثابتة مماثلة لجدول Node.js. ([bun.com](https://bun.com/blog/bun-v1.4.4)) سياسة الأمان تصنّف سلسلة **1.x.x** بأنها مدعومة، لكنها لا تحدد مدة دعم مضمونة أو تاريخ نهاية دعم؛ لذا لا يمكن إسناد عدد محدد من الأشهر أو السنوات إلى دعم **1.4.4** استنادًا إلى السياسة المنشورة. ([github.com](https://github.com/oven-sh/bun/security/policy))",
+ "events": [
+  {
+   "type": "response.created"
+  },
+  {
+   "type": "response.in_progress"
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_1",
+    "status": "in_progress"
+   }
+  },
+  {
+   "type": "response.web_search_call.in_progress",
+   "item_id": "ws_1",
+   "output_index": 0
+  },
+  {
+   "type": "response.web_search_call.searching",
+   "item_id": "ws_1",
+   "output_index": 0
+  },
+  {
+   "type": "response.web_search_call.completed",
+   "item_id": "ws_1",
+   "output_index": 0
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_1",
+    "status": "completed",
+    "action": {
+     "type": "search",
+     "query": "site.nodejs.org latest release November 2026 Node.js",
+     "queries": [
+      "site.nodejs.org latest release November 2026 Node.js",
+      "site.deno.com blog releases Deno latest",
+      "site.bun.sh blog latest Bun release"
+     ]
+    }
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_2",
+    "status": "in_progress"
+   }
+  },
+  {
+   "type": "response.web_search_call.in_progress",
+   "item_id": "ws_2",
+   "output_index": 1
+  },
+  {
+   "type": "response.web_search_call.searching",
+   "item_id": "ws_2",
+   "output_index": 1
+  },
+  {
+   "type": "response.web_search_call.completed",
+   "item_id": "ws_2",
+   "output_index": 1
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_2",
+    "status": "completed",
+    "action": {
+     "type": "open_page",
+     "url": "https://nodejs.org/en/blog/release/v26.13.1"
+    }
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_3",
+    "status": "in_progress"
+   }
+  },
+  {
+   "type": "response.web_search_call.in_progress",
+   "item_id": "ws_3",
+   "output_index": 2
+  },
+  {
+   "type": "response.web_search_call.searching",
+   "item_id": "ws_3",
+   "output_index": 2
+  },
+  {
+   "type": "response.web_search_call.completed",
+   "item_id": "ws_3",
+   "output_index": 2
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_3",
+    "status": "completed",
+    "action": {
+     "type": "search",
+     "query": "site.bun.com release schedule LTS support",
+     "queries": [
+      "site.bun.com release schedule LTS support",
+      "site.docs.deno.com release schedule long term support 2026"
+     ]
+    }
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "reasoning",
+    "id": "rs_1"
+   }
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "reasoning",
+    "id": "rs_1",
+    "summary": []
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_4",
+    "status": "in_progress"
+   }
+  },
+  {
+   "type": "response.web_search_call.in_progress",
+   "item_id": "ws_4",
+   "output_index": 3
+  },
+  {
+   "type": "response.web_search_call.searching",
+   "item_id": "ws_4",
+   "output_index": 3
+  },
+  {
+   "type": "response.web_search_call.completed",
+   "item_id": "ws_4",
+   "output_index": 3
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_4",
+    "status": "completed",
+    "action": {
+     "type": "open_page",
+     "url": "https://github.com/denoland/deno/releases"
+    }
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "reasoning",
+    "id": "rs_2"
+   }
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "reasoning",
+    "id": "rs_2",
+    "summary": []
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_5",
+    "status": "in_progress"
+   }
+  },
+  {
+   "type": "response.web_search_call.in_progress",
+   "item_id": "ws_5",
+   "output_index": 4
+  },
+  {
+   "type": "response.web_search_call.searching",
+   "item_id": "ws_5",
+   "output_index": 4
+  },
+  {
+   "type": "response.web_search_call.completed",
+   "item_id": "ws_5",
+   "output_index": 4
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "web_search_call",
+    "id": "ws_5",
+    "status": "completed",
+    "action": {
+     "type": "open_page",
+     "url": "https://deno.com/blog/cloudflare"
+    }
+   }
+  },
+  {
+   "type": "response.output_item.added",
+   "item": {
+    "type": "message",
+    "id": "msg_1",
+    "role": "assistant",
+    "content": []
+   }
+  },
+  {
+   "type": "response.content_part.added",
+   "item_id": "msg_1",
+   "part": {
+    "type": "output_text",
+    "text": "",
+    "annotations": []
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "**حتى 13 نوفمب"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ر 2026**، وبال"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "اعتماد على الم"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "صادر الرسمية ل"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ثلاث جهات مستق"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "لة: Node.js وD"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "eno وBun:\n\n**N"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ode.js:** أحدث"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " إصدار مستقر ه"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "و **26.13.1 ‏("
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "LTS)**، وصدر ف"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ي **11 نوفمبر "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "2026**؛ أما ال"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "إصدار 27 فما ي"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "زال تجريبيًا «"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "Alpha». ([node"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "js.org](https:"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "//nodejs.org/e"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "n/download)) ي"
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 0,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 218,
+    "end_index": 264,
+    "url": "https://nodejs.org/en/download",
+    "title": "Node.js — Download Node.js®"
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ستمر الدعم الن"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "شط لسلسلة **26"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": ".x** حتى **20 "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "أكتوبر 2027**،"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " ثم دعم الصيان"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ة حتى **30 أبر"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "يل 2029**؛ أي "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "نحو ثلاث سنوات"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " من إطلاق السل"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "سلة في **5 ماي"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "و 2026**، مع ض"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "رورة تثبيت تحد"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "يثاتها. وابتدا"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ءً من الإصدار "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "27، يصبح الجدو"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ل سنويًا: ستة "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "أشهر Alpha، ثم"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " ستة أشهر Curr"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ent، ثم 30 شهر"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ًا من الدعم طو"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "يل الأجل. ([gi"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "thub.com](http"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "s://github.com"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "/nodejs/Releas"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "e))\n\n**Deno:**"
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 1,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 556,
+    "end_index": 605,
+    "url": "https://github.com/nodejs/Release",
+    "title": "GitHub - nodejs/Release: Node.js Release Working Group · GitHub"
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " أحدث إصدار مس"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "تقر هو **2.9.8"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "**، وصدر في **"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "21 أكتوبر 2026"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "**. ([github.c"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "om](https://gi"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "thub.com/denol"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "and/deno/relea"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ses)) الإعلان "
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 2,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 676,
+    "end_index": 733,
+    "url": "https://github.com/denoland/deno/releases",
+    "title": "Releases · denoland/deno · GitHub"
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "الأحدث، المؤرخ"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " **9 أكتوبر 20"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "26**، يعد بتحد"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "يثات شهرية للأ"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "خطاء والأمان ل"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "مدة سنة إضافية"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "، أي حتى **نحو"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " أكتوبر 2027**"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "، ثم ينتهي تطو"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ير الفريق لبيئ"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ة التشغيل. ([d"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "eno.com](https"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "://deno.com/bl"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "og/cloudflare)"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": ") توجد ملاحظة "
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 3,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 893,
+    "end_index": 939,
+    "url": "https://deno.com/blog/cloudflare",
+    "title": "Deno is joining Cloudflare | Deno"
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "مهمة: الوثائق "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "الأقدم ما زالت"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " تعرض إصدارًا "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "فرعيًا كل 12 أ"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "سبوعًا، ودعم L"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "TS لسلسلة 2.9 "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "من **1 يوليو 2"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "026 إلى 31 ينا"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ير 2027**؛ لذل"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ك ينبغي التميي"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ز بين موعد LTS"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " الموثّق والتع"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "هد الأحدث بصيا"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "نة المشروع، ال"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ذي لا يحدد يوم"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " انتهاء دقيقًا"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": ". ([docs.deno."
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "com](https://d"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ocs.deno.com/r"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "untime/fundame"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ntals/stabilit"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "y_and_releases"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "/?utm_source=o"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "penai))\n\n**Bun"
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 4,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 1178,
+    "end_index": 1281,
+    "url": "https://docs.deno.com/runtime/fundamentals/stability_and_releases/?utm_source=openai",
+    "title": "Stability and releases | Deno Docs"
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": ":** أحدث إصدار"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " مستقر هو **1."
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "4.4**، وصدر في"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " **22 أكتوبر 2"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "026**. ويُظهر "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "سجل الإصدارات "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "وتيرة غير منتظ"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "مة، لا دورة زم"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "نية ثابتة مماث"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "لة لجدول Node."
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "js. ([bun.com]"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "(https://bun.c"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "om/blog/bun-v1"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": ".4.4)) سياسة ا"
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 5,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 1432,
+    "end_index": 1476,
+    "url": "https://bun.com/blog/bun-v1.4.4",
+    "title": "Bun v1.4.4 | Bun Blog"
+   }
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "لأمان تصنّف سل"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "سلة **1.x.x** "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "بأنها مدعومة، "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "لكنها لا تحدد "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "مدة دعم مضمونة"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " أو تاريخ نهاي"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ة دعم؛ لذا لا "
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "يمكن إسناد عدد"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": " محدد من الأشه"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ر أو السنوات إ"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "لى دعم **1.4.4"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "** استنادًا إل"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ى السياسة المن"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "شورة. ([github"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": ".com](https://"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "github.com/ove"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "n-sh/bun/secur"
+  },
+  {
+   "type": "response.output_text.delta",
+   "item_id": "msg_1",
+   "delta": "ity/policy))"
+  },
+  {
+   "type": "response.output_text.annotation.added",
+   "item_id": "msg_1",
+   "content_index": 0,
+   "annotation_index": 6,
+   "annotation": {
+    "type": "url_citation",
+    "start_index": 1672,
+    "end_index": 1734,
+    "url": "https://github.com/oven-sh/bun/security/policy",
+    "title": "Security Policy · oven-sh/bun · GitHub"
+   }
+  },
+  {
+   "type": "response.metadata",
+   "metadata": {},
+   "response_id": "resp_fixture",
+   "sequence_number": 164
+  },
+  {
+   "type": "response.output_text.done",
+   "item_id": "msg_1",
+   "text": "**حتى 13 نوفمبر 2026**، وبالاعتماد على المصادر الرسمية لثلاث جهات مستقلة: Node.js وDeno وBun:\n\n**Node.js:** أحدث إصدار مستقر هو **26.13.1 ‏(LTS)**، وصدر في **11 نوفمبر 2026**؛ أما الإصدار 27 فما يزال تجريبيًا «Alpha». ([nodejs.org](https://nodejs.org/en/download)) يستمر الدعم النشط لسلسلة **26.x** حتى **20 أكتوبر 2027**، ثم دعم الصيانة حتى **30 أبريل 2029**؛ أي نحو ثلاث سنوات من إطلاق السلسلة في **5 مايو 2026**، مع ضرورة تثبيت تحديثاتها. وابتداءً من الإصدار 27، يصبح الجدول سنويًا: ستة أشهر Alpha، ثم ستة أشهر Current، ثم 30 شهرًا من الدعم طويل الأجل. ([github.com](https://github.com/nodejs/Release))\n\n**Deno:** أحدث إصدار مستقر هو **2.9.8**، وصدر في **21 أكتوبر 2026**. ([github.com](https://github.com/denoland/deno/releases)) الإعلان الأحدث، المؤرخ **9 أكتوبر 2026**، يعد بتحديثات شهرية للأخطاء والأمان لمدة سنة إضافية، أي حتى **نحو أكتوبر 2027**، ثم ينتهي تطوير الفريق لبيئة التشغيل. ([deno.com](https://deno.com/blog/cloudflare)) توجد ملاحظة مهمة: الوثائق الأقدم ما زالت تعرض إصدارًا فرعيًا كل 12 أسبوعًا، ودعم LTS لسلسلة 2.9 من **1 يوليو 2026 إلى 31 يناير 2027**؛ لذلك ينبغي التمييز بين موعد LTS الموثّق والتعهد الأحدث بصيانة المشروع، الذي لا يحدد يوم انتهاء دقيقًا. ([docs.deno.com](https://docs.deno.com/runtime/fundamentals/stability_and_releases/?utm_source=openai))\n\n**Bun:** أحدث إصدار مستقر هو **1.4.4**، وصدر في **22 أكتوبر 2026**. ويُظهر سجل الإصدارات وتيرة غير منتظمة، لا دورة زمنية ثابتة مماثلة لجدول Node.js. ([bun.com](https://bun.com/blog/bun-v1.4.4)) سياسة الأمان تصنّف سلسلة **1.x.x** بأنها مدعومة، لكنها لا تحدد مدة دعم مضمونة أو تاريخ نهاية دعم؛ لذا لا يمكن إسناد عدد محدد من الأشهر أو السنوات إلى دعم **1.4.4** استنادًا إلى السياسة المنشورة. ([github.com](https://github.com/oven-sh/bun/security/policy))"
+  },
+  {
+   "type": "response.content_part.done",
+   "item_id": "msg_1"
+  },
+  {
+   "type": "response.output_item.done",
+   "item": {
+    "type": "message",
+    "id": "msg_1",
+    "role": "assistant",
+    "content": [
+     {
+      "type": "output_text",
+      "text": "**حتى 13 نوفمبر 2026**، وبالاعتماد على المصادر الرسمية لثلاث جهات مستقلة: Node.js وDeno وBun:\n\n**Node.js:** أحدث إصدار مستقر هو **26.13.1 ‏(LTS)**، وصدر في **11 نوفمبر 2026**؛ أما الإصدار 27 فما يزال تجريبيًا «Alpha». ([nodejs.org](https://nodejs.org/en/download)) يستمر الدعم النشط لسلسلة **26.x** حتى **20 أكتوبر 2027**، ثم دعم الصيانة حتى **30 أبريل 2029**؛ أي نحو ثلاث سنوات من إطلاق السلسلة في **5 مايو 2026**، مع ضرورة تثبيت تحديثاتها. وابتداءً من الإصدار 27، يصبح الجدول سنويًا: ستة أشهر Alpha، ثم ستة أشهر Current، ثم 30 شهرًا من الدعم طويل الأجل. ([github.com](https://github.com/nodejs/Release))\n\n**Deno:** أحدث إصدار مستقر هو **2.9.8**، وصدر في **21 أكتوبر 2026**. ([github.com](https://github.com/denoland/deno/releases)) الإعلان الأحدث، المؤرخ **9 أكتوبر 2026**، يعد بتحديثات شهرية للأخطاء والأمان لمدة سنة إضافية، أي حتى **نحو أكتوبر 2027**، ثم ينتهي تطوير الفريق لبيئة التشغيل. ([deno.com](https://deno.com/blog/cloudflare)) توجد ملاحظة مهمة: الوثائق الأقدم ما زالت تعرض إصدارًا فرعيًا كل 12 أسبوعًا، ودعم LTS لسلسلة 2.9 من **1 يوليو 2026 إلى 31 يناير 2027**؛ لذلك ينبغي التمييز بين موعد LTS الموثّق والتعهد الأحدث بصيانة المشروع، الذي لا يحدد يوم انتهاء دقيقًا. ([docs.deno.com](https://docs.deno.com/runtime/fundamentals/stability_and_releases/?utm_source=openai))\n\n**Bun:** أحدث إصدار مستقر هو **1.4.4**، وصدر في **22 أكتوبر 2026**. ويُظهر سجل الإصدارات وتيرة غير منتظمة، لا دورة زمنية ثابتة مماثلة لجدول Node.js. ([bun.com](https://bun.com/blog/bun-v1.4.4)) سياسة الأمان تصنّف سلسلة **1.x.x** بأنها مدعومة، لكنها لا تحدد مدة دعم مضمونة أو تاريخ نهاية دعم؛ لذا لا يمكن إسناد عدد محدد من الأشهر أو السنوات إلى دعم **1.4.4** استنادًا إلى السياسة المنشورة. ([github.com](https://github.com/oven-sh/bun/security/policy))",
+      "annotations": [
+       {
+        "type": "url_citation",
+        "start_index": 218,
+        "end_index": 264,
+        "url": "https://nodejs.org/en/download",
+        "title": "Node.js — Download Node.js®"
+       },
+       {
+        "type": "url_citation",
+        "start_index": 556,
+        "end_index": 605,
+        "url": "https://github.com/nodejs/Release",
+        "title": "GitHub - nodejs/Release: Node.js Release Working Group · GitHub"
+       },
+       {
+        "type": "url_citation",
+        "start_index": 676,
+        "end_index": 733,
+        "url": "https://github.com/denoland/deno/releases",
+        "title": "Releases · denoland/deno · GitHub"
+       },
+       {
+        "type": "url_citation",
+        "start_index": 893,
+        "end_index": 939,
+        "url": "https://deno.com/blog/cloudflare",
+        "title": "Deno is joining Cloudflare | Deno"
+       },
+       {
+        "type": "url_citation",
+        "start_index": 1178,
+        "end_index": 1281,
+        "url": "https://docs.deno.com/runtime/fundamentals/stability_and_releases/?utm_source=openai",
+        "title": "Stability and releases | Deno Docs"
+       },
+       {
+        "type": "url_citation",
+        "start_index": 1432,
+        "end_index": 1476,
+        "url": "https://bun.com/blog/bun-v1.4.4",
+        "title": "Bun v1.4.4 | Bun Blog"
+       },
+       {
+        "type": "url_citation",
+        "start_index": 1672,
+        "end_index": 1734,
+        "url": "https://github.com/oven-sh/bun/security/policy",
+        "title": "Security Policy · oven-sh/bun · GitHub"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "type": "response.completed",
+   "response": {
+    "status": "completed",
+    "output": [],
+    "usage": {
+     "input_tokens": 46453,
+     "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 3968
+     },
+     "output_tokens": 1071,
+     "output_tokens_details": {
+      "reasoning_tokens": 468
+     },
+     "total_tokens": 47524
+    }
+   }
+  }
+ ]
+}

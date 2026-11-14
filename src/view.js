@@ -587,6 +587,37 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     .other-reply .row { margin-top: 4px; }
     .reply-state { margin-top: 6px; font-size: 12px; color: var(--vscode-descriptionForeground); }
     .other-reply { font-size: 12px; color: var(--vscode-descriptionForeground); }
+    /* 0.9.0 Deep Research. Chosen from +; while on, one compact chip above
+       the text (not in the bar, so the bar keeps its one line). */
+    .research-row { display: flex; padding: 8px 10px 0; }
+    .research-chip {
+      display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+      padding: 2px 6px 2px 9px; font-size: 12px; border-radius: 12px;
+      color: var(--vscode-foreground); background: transparent;
+      border: 1px solid var(--vscode-focusBorder);
+    }
+    .research-chip:hover { background: var(--vscode-toolbar-hoverBackground, var(--vscode-button-secondaryBackground)); }
+    .research-chip svg { flex: none; }
+    .menu-check { visibility: hidden; margin-inline-start: 6px; }
+    .menu-item[aria-checked="true"] .menu-check { visibility: visible; }
+    .research-status { margin-bottom: 6px; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .research-meta { margin-top: 8px; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    a.citation {
+      display: inline-flex; align-items: baseline; gap: 3px;
+      margin-inline: 2px; padding: 0 5px;
+      font-size: 11px; line-height: 1.5; white-space: nowrap; text-decoration: none;
+      color: var(--vscode-textLink-foreground);
+      border: 1px solid currentColor; border-radius: 8px;
+    }
+    a.citation:hover { text-decoration: underline; }
+    .citation-n { font-weight: 600; }
+    .sources { margin-top: 8px; font-size: 12px; }
+    .sources > summary { cursor: pointer; }
+    .sources ol { margin: 6px 0 0; padding-inline-start: 22px; }
+    .sources li { margin-bottom: 6px; }
+    .source-host, .source-url { display: block; color: var(--vscode-descriptionForeground); }
+    .source-url { overflow-wrap: anywhere; }
+    .research-retry { margin-top: 6px; }
   </style>
 </head>
 <body data-mode="${pageMode}">
@@ -705,14 +736,24 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
           </div>
         </section>
         <div id="composerBox" class="composer-box">
+          <!-- 0.9.0: Deep Research is on for the next Send. Selecting the chip turns it off. -->
+          <div id="researchRow" class="research-row hidden">
+            <button id="researchChip" class="research-chip" type="button" aria-pressed="true" aria-describedby="researchHint" title="Deep Research is on: your next message searches the web and answers with cited sources. Select to turn it off.">
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="5" cy="5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 7.5L10.5 10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              <span>Deep Research</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </button>
+            <span id="researchHint" class="visually-hidden">On for your next message. Select to turn Deep Research off.</span>
+          </div>
           <textarea id="prompt" dir="auto" placeholder="Message ChatGPT…" aria-label="Message"></textarea>
           <div id="composerBar" class="actions composer-bar">
             <!-- 0.7.0 RC2 (DEC-PLANCHAT-035): in the editor tab, actions are under + .
                  Only things Kenlith can do; each item posts an existing message. -->
-            <button id="plus" class="icon-button hidden" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="plusMenu" aria-label="Actions: attach selection, project sharing, project settings" title="Actions">
+            <button id="plus" class="icon-button hidden" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="plusMenu" aria-label="Actions: Deep Research, attach selection, project sharing, project settings" title="Actions">
               <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2v10M2 7h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
             </button>
             <div id="plusMenu" class="plus-menu hidden" role="menu" aria-labelledby="plus">
+              <button id="menuResearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Deep Research<span class="menu-check" aria-hidden="true">✓</span></span><span class="menu-desc">Search the web and answer with cited sources. Sends only your question and this chat, never project files.</span></button>
               <button id="menuAttach" class="menu-item" type="button" role="menuitem"><span class="menu-label">Attach selection</span><span class="menu-desc">The code selected in the editor. You review it before it is sent.</span></button>
               <button id="menuSharing" class="menu-item" type="button" role="menuitem"><span class="menu-label">Project sharing…</span><span class="menu-desc">See or stop what projects share with OpenAI.</span></button>
               <button id="menuSettings" class="menu-item" type="button" role="menuitem"><span class="menu-label">Project context settings…</span><span class="menu-desc">Turn project files, tools, proposed changes or commands on or off.</span></button>
@@ -788,6 +829,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       menuAttach: document.getElementById('menuAttach'),
       menuSharing: document.getElementById('menuSharing'),
       menuSettings: document.getElementById('menuSettings'),
+      menuResearch: document.getElementById('menuResearch'),
+      researchRow: document.getElementById('researchRow'),
+      researchChip: document.getElementById('researchChip'),
       messages: document.getElementById('messages'),
       jump: document.getElementById('jump'),
       signedOut: document.getElementById('signedOut'),
@@ -855,7 +899,14 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       attachFromView: false,
       // Another chat of this window is replying (one request at a time).
       otherReply: null,
-      draftTimer: undefined
+      draftTimer: undefined,
+      // 0.9.0: Deep Research is on for the next Send (this tab only, never
+      // stored). It turns off once a Send carries it; a refused Send turns it
+      // back on with the text. researchSpoken: the last phase announced.
+      research: false,
+      researchAwaiting: false,
+      researchText: '',
+      researchSpoken: new Map()
     };
 
     function post(type, extra = {}) { vscode.postMessage({ type, ...extra }); }
@@ -866,6 +917,76 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       setTimeout(() => { region.textContent = text; }, 30);
     }
     function announce(text) { speak(elements.announcer, text); }
+    // 0.9.0 Deep Research.
+    const DEFAULT_PLACEHOLDER = 'Message ChatGPT…';
+    function setResearch(on, spoken) {
+      state.research = Boolean(on) && MODE === 'panel';
+      setHidden(elements.researchRow, !state.research);
+      elements.menuResearch.setAttribute('aria-checked', String(state.research));
+      elements.prompt.placeholder = state.research ? 'Ask a research question…' : DEFAULT_PLACEHOLDER;
+      if (spoken) announce(state.research ? 'Deep Research on. Your next message searches the web and answers with cited sources.' : 'Deep Research off.');
+    }
+    const RESEARCH_PHASES = { preparing: 'Preparing research…', searching: 'Searching the web…', reading: 'Reading sources…', synthesizing: 'Synthesizing…' };
+    const plural = (count, one, many) => count + ' ' + (count === 1 ? one : many);
+    function researchCounts(research, cited) {
+      const parts = [];
+      if (research.searches) parts.push(plural(research.searches, 'web search', 'web searches'));
+      if (research.pagesRead) parts.push(plural(research.pagesRead, 'page read', 'pages read'));
+      if (cited) parts.push(plural(cited, 'source cited', 'sources cited'));
+      return parts;
+    }
+    // The Sources list of a research answer: the cited pages only (from the
+    // annotations), each with title, domain and address. Text nodes only.
+    function sourcesElement(sources) {
+      const details = document.createElement('details');
+      details.className = 'sources';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Sources (' + sources.length + ')';
+      const list = document.createElement('ol');
+      for (const source of sources) {
+        const entry = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = source.url;
+        link.dir = 'auto';
+        link.className = 'source-title';
+        link.textContent = source.title;
+        link.setAttribute('aria-label', 'Source ' + source.n + ': ' + source.title + ', ' + source.host);
+        const host = document.createElement('span');
+        host.className = 'source-host';
+        host.dir = 'ltr';
+        host.textContent = source.host;
+        const address = document.createElement('span');
+        address.className = 'source-url';
+        address.dir = 'ltr';
+        address.textContent = source.url;
+        entry.append(link, host, address);
+        list.append(entry);
+      }
+      details.append(summary, list);
+      return details;
+    }
+    // Retry: the question goes back into the message box with Deep Research
+    // on. Nothing is sent until the user presses Send.
+    function retryResearch(messageId) {
+      const ids = [...state.messages.keys()];
+      const at = ids.indexOf(messageId);
+      let question;
+      for (let index = at - 1; index >= 0; index -= 1) {
+        const item = state.messages.get(ids[index]);
+        if (item && item.role === 'user') { question = item.content; break; }
+      }
+      if (!question) { announce('The question for this research was not found.'); return; }
+      if (elements.prompt.value.trim() && elements.prompt.value.trim() !== question.trim()) {
+        announce('Clear the message box first, then choose Retry.');
+        elements.prompt.focus();
+        return;
+      }
+      elements.prompt.value = question; fitPrompt();
+      setResearch(true);
+      elements.prompt.focus();
+      saveDraftSoon();
+      announce('Your question is back in the message box with Deep Research on. Press Send to run it again.');
+    }
     // Project context consent (M1-4). The card shows what would be sent;
     // nothing is sent until a choice is made, and the choice is made here,
     // in this window.
@@ -945,11 +1066,27 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       button.addEventListener('click', () => post('manageUsage'));
       return button;
     }
-    function showError(message, action) {
+    function showError(message, action, model) {
       const text = document.createElement('span');
       text.textContent = message || '';
       elements.error.replaceChildren(text);
       if (message && (action === 'manageUsage' || action === 'usagePaused')) elements.error.append(usageButton());
+      // 0.9.0: Deep Research is not verified for the selected model; the
+      // verified one is offered. Choosing it only selects it; nothing is sent.
+      if (message && action === 'researchModel' && model && typeof model.id === 'string' && [...elements.models.options].some((option) => option.value === model.id)) {
+        const use = document.createElement('button');
+        use.type = 'button';
+        use.className = 'action research-model-action';
+        use.textContent = 'Use ' + String(model.name || model.id);
+        use.addEventListener('click', () => {
+          elements.models.value = model.id;
+          elements.models.dispatchEvent(new Event('change', { bubbles: true }));
+          showError('');
+          elements.prompt.focus();
+          announce(String(model.name || model.id) + ' selected. Press Send to run Deep Research.');
+        });
+        elements.error.append(use);
+      }
       if (message && action === 'usagePaused') {
         const resume = document.createElement('button');
         resume.type = 'button';
@@ -976,6 +1113,8 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       updateSend();
       setHidden(elements.stop, !streaming);
       setHidden(elements.replyStatus, !streaming);
+      // 0.9.0: a research run says so while it streams (researchProgress).
+      if (!streaming) elements.replyStatus.textContent = 'Kenlith is replying… Press Escape or Stop to stop it.';
       elements.messages.setAttribute('aria-busy', String(streaming));
       if (!streaming) flushRenders();
     }
@@ -1410,7 +1549,11 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     function renderBody(item) {
       const markdown = item.role === 'assistant' && !item.error
         && !(item.live && item.content.length > LIVE_MARKDOWN_LIMIT);
-      item.bubble.replaceChildren(markdown ? md.render(document, item.content) : md.renderPlain(document, item.content));
+      // 0.9.0: a Deep Research answer is rendered with its citations, which
+      // come from OpenAI's annotations only (md.renderCited checks each place).
+      const research = item.role === 'assistant' && item.research && item.research.mode === 'deep-research' ? item.research : undefined;
+      const citations = research && Array.isArray(research.citations) ? research.citations : [];
+      item.bubble.replaceChildren(markdown ? (citations.length ? md.renderCited(document, item.content, citations) : md.render(document, item.content)) : md.renderPlain(document, item.content));
       // A failed reply that kept partial text says why under it. The reason
       // is not stored; a failed reply loaded from history gets a short note.
       if (item.error && !item.content.startsWith('Request failed:')) {
@@ -1430,16 +1573,57 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       if (item.stopped && !item.error) {
         const note = document.createElement('div');
         note.className = 'reply-state';
-        note.textContent = 'Stopped: you stopped this reply before it finished. Only the text received is shown.';
+        note.textContent = research
+          ? 'Stopped: you stopped this Deep Research run before it finished. It did not continue. ' + (item.content ? 'Only the text received is shown.' : 'No answer was received.')
+          : 'Stopped: you stopped this reply before it finished. Only the text received is shown.';
         item.bubble.append(note);
       }
       if (item.interrupted || item.replyingElsewhere) {
         const note = document.createElement('div');
         note.className = 'reply-state';
         note.textContent = item.interrupted
-          ? 'Interrupted: the editor closed before this reply finished. ChatGPT will not see this partial reply in later messages.'
+          ? (research
+            ? 'Interrupted: the editor closed during this Deep Research run. The research did not continue in the background. ChatGPT will not see this partial reply in later messages.'
+            : 'Interrupted: the editor closed before this reply finished. ChatGPT will not see this partial reply in later messages.')
           : 'Replying in another window…';
         item.bubble.append(note);
+      }
+      // 0.9.0: the research status, counts, Sources and Retry, last.
+      if (research) renderResearch(item, research, citations);
+    }
+    // While the run streams: one quiet status line from the observed steps.
+    // When it has ended: the counts, the Sources, and Retry for a run that
+    // did not complete. Never any model reasoning.
+    function renderResearch(item, research, citations) {
+      const { sources } = md.citationSources(item.content, citations);
+      const running = (item.live || item.inProgress) && !item.error && !item.stopped && !item.interrupted && !item.replyingElsewhere;
+      if (running) {
+        const status = document.createElement('div');
+        status.className = 'research-status';
+        status.setAttribute('role', 'status');
+        status.textContent = ['Deep Research · ' + (RESEARCH_PHASES[research.phase] || RESEARCH_PHASES.preparing), ...researchCounts(research, sources.length)].join(' · ');
+        item.bubble.prepend(status);
+        return;
+      }
+      const meta = document.createElement('div');
+      meta.className = 'research-meta';
+      meta.textContent = ['Deep Research', ...researchCounts(research, 0)].join(' · ');
+      item.bubble.append(meta);
+      if (sources.length) item.bubble.append(sourcesElement(sources));
+      else if (!item.error && !item.stopped && !item.interrupted && item.content) {
+        const none = document.createElement('div');
+        none.className = 'reply-state';
+        none.textContent = 'No sources were cited in this answer. Treat it as unverified.';
+        item.bubble.append(none);
+      }
+      if (item.error || item.stopped || item.interrupted) {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'action secondary research-retry';
+        retry.dataset.researchRetry = '';
+        retry.textContent = 'Retry';
+        retry.setAttribute('aria-label', 'Retry Deep Research: put the question back in the message box');
+        item.bubble.append(retry);
       }
     }
     function scheduleRender(id) {
@@ -1503,14 +1687,14 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       bubble.className = 'bubble';
       container.append(role, bubble);
       elements.messages.append(container);
-      const item = { container, bubble, role: message.role, content: message.content || '', error: Boolean(message.error), live: false, attachmentTurn: Boolean(message.attachmentTurn), contextPolicy: message.contextPolicy, errorText: state.liveFailures.get(message.id)?.errorText, action: state.liveFailures.get(message.id)?.action, provenance: message.provenance, contextUsed: Array.isArray(message.contextUsed) ? message.contextUsed : [], projectShared: message.projectShared, commands: Array.isArray(message.commands) ? message.commands : [], withoutProjectFiles: Boolean(message.withoutProjectFiles), projectNotSent: Boolean(message.projectNotSent), interrupted: Boolean(message.interrupted), replyingElsewhere: Boolean(message.replyingElsewhere), inProgress: Boolean(message.inProgress), stopped: Boolean(message.stopped) };
+      const item = { container, bubble, role: message.role, content: message.content || '', error: Boolean(message.error), live: false, attachmentTurn: Boolean(message.attachmentTurn), contextPolicy: message.contextPolicy, errorText: state.liveFailures.get(message.id)?.errorText, action: state.liveFailures.get(message.id)?.action, provenance: message.provenance, contextUsed: Array.isArray(message.contextUsed) ? message.contextUsed : [], projectShared: message.projectShared, commands: Array.isArray(message.commands) ? message.commands : [], withoutProjectFiles: Boolean(message.withoutProjectFiles), projectNotSent: Boolean(message.projectNotSent), interrupted: Boolean(message.interrupted), replyingElsewhere: Boolean(message.replyingElsewhere), inProgress: Boolean(message.inProgress), stopped: Boolean(message.stopped), research: message.research && typeof message.research === 'object' ? message.research : undefined };
       state.messages.set(message.id, item);
       renderBody(item);
       if (Array.isArray(message.attachments) && message.attachments.length) container.append(attachmentChip(message.attachments));
       renderReplyContext(item);
       if (!batch) contentChanged();
     }
-    function updateMessage(id, content, error, errorText, action, projectNotSent) {
+    function updateMessage(id, content, error, errorText, action, projectNotSent, research) {
       const item = state.messages.get(id);
       if (!item) return;
       state.pending.delete(id);
@@ -1519,6 +1703,8 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       item.errorText = errorText;
       item.action = action;
       if (projectNotSent) item.projectNotSent = true;
+      // 0.9.0: the final citations and counts of a research answer.
+      if (research && typeof research === 'object') item.research = research;
       item.inProgress = false;
       if (item.error) state.liveFailures.set(id, { errorText, action }); else state.liveFailures.delete(id);
       item.live = false;
@@ -1676,9 +1862,27 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
           rememberChat(message.conversation && message.conversation.id);
           break;
         case 'conversationList': renderConversations(message.conversationList); break;
-        case 'messageAdded': addMessage(message.message); break;
+        case 'messageAdded':
+          // 0.9.0: the question that carried Deep Research was accepted.
+          if (message.message && message.message.role === 'user') state.researchAwaiting = false;
+          addMessage(message.message);
+          break;
         case 'assistantDelta': appendDelta(message.messageId, message.delta); break;
-        case 'messageUpdated': updateMessage(message.messageId, message.content, message.error, message.errorText, message.action, message.projectNotSent); break;
+        case 'messageUpdated': updateMessage(message.messageId, message.content, message.error, message.errorText, message.action, message.projectNotSent, message.research); break;
+        // 0.9.0: the observed research steps and the citations so far.
+        case 'researchProgress': {
+          const item = state.messages.get(message.messageId);
+          if (!item) break;
+          item.research = { mode: 'deep-research', phase: message.phase, searches: Number(message.searches) || 0, pagesRead: Number(message.pagesRead) || 0, citations: Array.isArray(message.citations) ? message.citations : [] };
+          if (!item.live) { item.live = true; renderReplyContext(item); }
+          if (state.researchSpoken.get(message.messageId) !== message.phase && RESEARCH_PHASES[message.phase]) {
+            state.researchSpoken.set(message.messageId, message.phase);
+            announce('Deep Research: ' + RESEARCH_PHASES[message.phase]);
+          }
+          elements.replyStatus.textContent = 'Deep Research is running… Press Escape or Stop to stop it.';
+          scheduleRender(message.messageId);
+          break;
+        }
         case 'messageRemoved': removeMessage(message.messageId); break;
         case 'streamState': setStreaming(message.streaming); if (message.otherReply !== undefined) renderOtherReply(message.otherReply); break;
         case 'busy': setBusy(message.busy, message.label); break;
@@ -1697,8 +1901,12 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
           }
           break;
         }
-        case 'error': showError(message.message, message.action); break;
+        case 'error': showError(message.message, message.action, message.model); break;
         case 'restoreDraft':
+          // 0.9.0: a refused Send that carried Deep Research turns it back on,
+          // only for that same text, and only into an empty message box.
+          if (state.researchAwaiting && message.text === state.researchText && !elements.prompt.value) setResearch(true);
+          state.researchAwaiting = false;
           // A refused message comes back for correction, unless the user has
           // already started typing something else.
           if (!elements.prompt.value) {
@@ -1758,6 +1966,13 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     // Copy goes through the extension so the code is copied exactly.
     elements.messages.addEventListener('click', (event) => {
       if (openLinkFrom(event)) return;
+      // 0.9.0: Retry a research run (puts the question back; sends nothing).
+      const retry = event.target.closest && event.target.closest('button[data-research-retry]');
+      if (retry) {
+        const article = retry.closest('article');
+        if (article) retryResearch(article.dataset.id);
+        return;
+      }
       const reply = event.target.closest && event.target.closest('button[data-reply-context]');
       if (reply) {
         const article = reply.closest('article');
@@ -1834,7 +2049,7 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       setHidden(elements.attach, true);
       setHidden(elements.plus, false);
     }
-    const menuItems = () => [...elements.plusMenu.querySelectorAll('[role="menuitem"]')].filter((item) => !item.disabled);
+    const menuItems = () => [...elements.plusMenu.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]')].filter((item) => !item.disabled);
     function setMenuOpen(open, focusButton) {
       setHidden(elements.plusMenu, !open);
       elements.plus.setAttribute('aria-expanded', String(open));
@@ -1862,6 +2077,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     elements.menuAttach.addEventListener('click', fromMenu(() => { state.attachFromView = true; post('attachSelection'); }));
     elements.menuSharing.addEventListener('click', fromMenu(() => post('manageProjectSharing')));
     elements.menuSettings.addEventListener('click', fromMenu(() => post('openProjectSettings')));
+    // 0.9.0: Deep Research on or off for the next Send; the message box keeps focus.
+    elements.menuResearch.addEventListener('click', () => { setMenuOpen(false); setResearch(!state.research, true); elements.prompt.focus(); });
+    elements.researchChip.addEventListener('click', () => { setResearch(false, true); elements.prompt.focus(); });
     elements.attachConfirm.addEventListener('change', () => {
       if (state.attachment) elements.attachApprove.disabled = !elements.attachConfirm.checked;
     });
@@ -2007,6 +2225,12 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         elements.consentTitle.focus();
         return;
       }
+      // 0.9.0: Deep Research never carries attached code (checked again by the host).
+      if (state.research && state.attachment) {
+        announce('Deep Research sends only your question and this chat, never attached code. Remove the attached code or turn off Deep Research.');
+        return;
+      }
+      const research = state.research;
       elements.prompt.value = ''; fitPrompt();
       showError('');
       state.follow = true;
@@ -2014,7 +2238,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       clearTimeout(state.draftTimer);
       // A new id per Send: the extension sends a message once even if this arrives twice.
       // 0.8.0: the Thinking level shown is the level requested (checked again by the host).
-      post('send', { text, model: elements.models.value, effort: state.reasoning && elements.effort.value ? elements.effort.value : undefined, attachmentId: state.attachment ? state.attachment.id : undefined, sendId: sendIdOf(), draftRev: Date.now() });
+      // 0.9.0: Deep Research applies to this Send only, and is sent as true or not at all.
+      post('send', { text, model: elements.models.value, effort: state.reasoning && elements.effort.value ? elements.effort.value : undefined, attachmentId: state.attachment ? state.attachment.id : undefined, sendId: sendIdOf(), draftRev: Date.now(), ...(research ? { research: true } : {}) });
+      if (research) { state.researchAwaiting = true; state.researchText = text; setResearch(false); }
     }
 
     post('ready');

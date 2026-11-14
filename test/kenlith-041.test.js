@@ -17,13 +17,13 @@ const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const pkg = JSON.parse(read('package.json'));
 // SHA-256 of media/chat-tab.svg, the approved coloured editor-tab icon (Kenlith 0.7.0).
-const CHAT_TAB_SHA256 = 'a05feadb0bed3759a541b7470e89994fb90f38b1aa600c88cc71e55e575b657d';
+const CHAT_TAB_SHA256 = '41739ee82c1640d9bc6fa9e65169767fb4f195c97026c8d209360e7806b0d6cf';
 const SHIPPED = ['package.json', 'README.md', 'CHANGELOG.md', 'SECURITY.md', 'LICENSE',
   ...fs.readdirSync(path.join(root, 'src')).filter((name) => name.endsWith('.js')).map((name) => `src/${name}`)];
 
 test('Kenlith 1. the product name: display name, version, Activity Bar, views, settings section', () => {
   assert.equal(pkg.displayName, 'Kenlith');
-  assert.equal(pkg.version, '0.8.0'); // Kenlith 0.8.0 (the name and identity of 0.4.1 are kept)
+  assert.equal(pkg.version, '0.9.0'); // Kenlith 0.9.0 (the name and identity of 0.4.1 are kept)
   assert.ok(pkg.keywords.includes('kenlith'));
   assert.doesNotMatch(pkg.description, /Plan Chat|ScopeArc/);
   assert.equal(pkg.contributes.viewsContainers.activitybar[0].title, 'Kenlith');
@@ -143,7 +143,7 @@ test('Kenlith 10. packaging: a Kenlith file name around the unchanged extension 
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 'kenlith-pack-'));
   try {
     const file = execFileSync(process.execPath, [path.join(root, 'scripts', 'package-vsix.js'), '--out', out, '--label', 'test', '--artifact', 'kenlith-antigravity'], { encoding: 'utf8', env: { ...process.env, SOURCE_DATE_EPOCH: '1767225600' } }).trim();
-    assert.equal(path.basename(file), 'kenlith-antigravity-0.8.0-test.vsix');
+    assert.equal(path.basename(file), 'kenlith-antigravity-0.9.0-test.vsix');
     // Read the manifest entry from its local file header (method 8 = deflate).
     const zip = fs.readFileSync(file);
     const at = zip.indexOf(Buffer.from('extension.vsixmanifest')) - 30;
@@ -153,7 +153,7 @@ test('Kenlith 10. packaging: a Kenlith file name around the unchanged extension 
     const start = at + 30 + zip.readUInt16LE(at + 26) + zip.readUInt16LE(at + 28);
     const body = zip.subarray(start, start + size);
     const manifest = (method === 8 ? require('node:zlib').inflateRawSync(body) : body).toString('utf8');
-    assert.match(manifest, /<Identity [^>]*Id="plan-chat-antigravity"[^>]*Version="0\.8\.0"[^>]*Publisher="local-open-source"/);
+    assert.match(manifest, /<Identity [^>]*Id="plan-chat-antigravity"[^>]*Version="0\.9\.0"[^>]*Publisher="local-open-source"/);
     assert.match(manifest, /<DisplayName>Kenlith<\/DisplayName>/);
     assert.throws(() => execFileSync(process.execPath, [path.join(root, 'scripts', 'package-vsix.js'), '--out', out, '--artifact', 'Bad Name'], { stdio: 'pipe' }));
   } finally {
@@ -168,16 +168,21 @@ test('Kenlith 11. the icons are the approved Signal Rings files of Plan Chat 0.4
   assert.equal(sha('media/chat.svg'), '5b07b6cd6262f7e9b2d6862866f659c0866c37c61fe104a39e9776dcb5177394');
 });
 
-test('Kenlith 0.7.0 editor tab icon (DEC-PLANCHAT-033, 034): the approved Signal Rings in brand greens for every theme, colours written in, never currentColor', () => {
+// 0.9.0 refines the tab icon (replaces the 0.7.0 geometry for the tab only):
+// concentric Signal Mint rings with an open centre on the rimmed Deep Forest
+// tile, drawn for 16 to 20 px.
+test('Kenlith 0.9.0 editor tab icon: the refined Signal Rings tile for every theme, colours written in, never currentColor', () => {
   const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   const svg = read('media/chat-tab.svg');
   assert.doesNotMatch(svg, /currentColor/);
-  // The approved Signal Rings vector with its ring colour written in (Signal Mint,
-  // a light brand green), never white, off-white or black: pinned byte for byte.
+  // The approved two-ring vector, pinned byte for byte.
   assert.equal(crypto.createHash('sha256').update(svg).digest('hex'), CHAT_TAB_SHA256);
-  assert.match(svg, /#7FD8A4/);
   assert.doesNotMatch(svg, /#F1F3EE|#FFFFFF|#000000/i);
   assert.match(svg, /fill="#103D32"/);
+  // Small-size drawing: a 24-unit grid, the tile and two rings, no glow or fine detail.
+  assert.match(svg, /viewBox="0 0 24 24"/);
+  assert.equal((svg.match(/<circle /g) || []).length, 2);
+  assert.doesNotMatch(svg, /<filter|blur|<image|gradient/i);
   assert.ok(!fs.existsSync(path.join(root, 'media', 'chat-tab-light.svg')) && !fs.existsSync(path.join(root, 'media', 'chat-tab-dark.svg')), 'the 0.6.0 themed tab icons are gone');
   const panels = read('src/panels.js');
   assert.match(panels, /panel\.iconPath = vscode\.Uri\.joinPath\(this\.context\.extensionUri, 'media', 'chat-tab\.svg'\);/);

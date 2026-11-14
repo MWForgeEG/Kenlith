@@ -1,7 +1,7 @@
 # Kenlith security model
 
 This page explains what Kenlith protects, where its trust boundaries are, and
-which risks remain. It describes Kenlith 0.8.0. For how to report a
+which risks remain. It describes Kenlith 0.9.0. For how to report a
 vulnerability, see [SECURITY.md](../SECURITY.md).
 
 ## What Kenlith protects
@@ -118,6 +118,22 @@ every request in a tool loop. It:
 - sends output about your computer, or output that points mostly outside the
   project, only after you choose **Share** on its own card.
 
+## Deep Research
+
+- Deep Research adds OpenAI's hosted `web_search` tool to one request, with
+  `tool_choice: "required"`. The search runs on OpenAI's side; Kenlith
+  fetches no web page itself.
+- A research request carries the question and the chat's text. Kenlith
+  leaves out project excerpts, attached code and earlier answers that used
+  project data, and it offers no project tool, command or proposal in that
+  request. The sharing card is never shown for it.
+- Web pages, answers and citations are untrusted data. Citations are built
+  from OpenAI's citation annotations, not from the answer text, and every
+  link opens only after you confirm the full address.
+- A completed research answer is ordinary chat history afterwards. In later
+  messages it passes through the same sharing, read, command, secret and
+  output boundaries as any other reply.
+
 ## Sign-in
 
 - Kenlith uses OpenAI's Sign in with ChatGPT flow for open-source, locally
@@ -151,5 +167,8 @@ operating-system sandbox**. These risks remain:
   answer. They cannot make Kenlith cross the boundaries above.
 - **A compromised machine.** If a program on your `PATH` or another
   extension in the same editor is malicious, it is outside Kenlith's control.
+- **Web content.** A research answer is built from public web pages chosen
+  by the model and OpenAI's search. It can be wrong or misleading. It cannot
+  make Kenlith cross the boundaries above.
 - **Sent data.** Stopping sharing or signing out cannot recall data that was
   already sent to OpenAI.
