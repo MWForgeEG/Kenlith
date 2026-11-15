@@ -208,8 +208,13 @@ class ConversationStore {
       // 0.9.0: a Deep Research reply is marked from the start, so a run cut
       // off by a quit is still known as one (and offered Retry). Its
       // citations and counts are written when it ends (finishReply).
+      // 0.10.0: `details.research` is true (Deep Research, 0.9.x) or
+      // { mode: 'search' | 'deep-research', trigger }.
       if (role === 'assistant' && details.research) {
-        message.research = { mode: 'deep-research' };
+        const mode = details.research === true || details.research.mode !== 'search' ? 'deep-research' : 'search';
+        message.research = mode === 'search'
+          ? { mode, ...(['auto', 'manual'].includes(details.research.trigger) ? { trigger: details.research.trigger } : {}) }
+          : { mode };
       }
       // The user chose Send without project files (M1-4): shown on the reply.
       if (role === 'assistant' && details.withoutProjectFiles) {
@@ -572,7 +577,10 @@ class ConversationStore {
       }
       // projectDerived tells the caller the project gate must run; the
       // request builder sends only role and content.
-      selected.unshift(classify(message) === 'project-derived' ? { role: message.role, content, projectDerived: true } : { role: message.role, content });
+      // 0.10.0: a reply to attached code is marked too, so the builder can
+      // tell a web-safe history (src/request-builder.js) from one that is not.
+      const attached = message.attachmentTurn || message.attachmentReply ? { attachmentReply: true } : {};
+      selected.unshift(classify(message) === 'project-derived' ? { role: message.role, content, projectDerived: true, ...attached } : { role: message.role, content, ...attached });
       characters += length;
     }
     return selected;

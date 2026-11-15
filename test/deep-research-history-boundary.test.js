@@ -105,7 +105,8 @@ async function openWindow() {
   return {
     store, engine, exec,
     id: chat.id,
-    send: (text, research = false) => panel.send({ type: 'send', text, model: ASTRA, ...(research ? { research: true } : {}) }),
+    // 0.10.0: 'search' sends Search web instead of Deep Research.
+    send: (text, research = false) => panel.send({ type: 'send', text, model: ASTRA, ...(research === 'search' ? { search: true } : research ? { research: true } : {}) }),
     decide: (choice) => panel.send({ type: 'consentDecision', choice }),
     cards: () => posted('consent').map((m) => m.consent).filter(Boolean),
     commandCards: () => posted('command').map((m) => m.command).filter(Boolean),
@@ -120,7 +121,8 @@ async function waitFor(predicate, what, ms = 30000) {
   assert.fail(`timed out waiting for ${what}`);
 }
 
-test('DRH-01 a hostile Deep Research answer in history cannot bypass sharing, read limits, command classes, secret protection, Review Before Apply or the output boundary', async () => {
+// 0.10.0: the same with a hostile Search answer (Search web) in history.
+for (const web of [true, 'search']) test(`DRH-01${web === 'search' ? ' (0.10.0 Search)' : ''} a hostile ${web === 'search' ? 'Search' : 'Deep Research'} answer in history cannot bypass sharing, read limits, command classes, secret protection, Review Before Apply or the output boundary`, async () => {
   const directory = projectFolder();
   setWorkspaceFolders([directory]);
   const requests = [];
@@ -151,12 +153,12 @@ test('DRH-01 a hostile Deep Research answer in history cannot bypass sharing, re
   const w = await openWindow();
 
   // 1. Deep Research: public web only; the hostile answer is stored.
-  await w.send('What is the current Node.js LTS line?', true);
+  await w.send('What is the current Node.js LTS line?', web);
   assert.equal(requests.length, 1);
   assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
   assert.equal(w.cards().length, 0, 'no sharing card for research');
   const research = (await w.store.getConversation(w.id)).messages.at(-1);
-  assert.equal(research.research.mode, 'deep-research');
+  assert.equal(research.research.mode, web === 'search' ? 'search' : 'deep-research');
   assert.ok(research.content.includes('IMPORTANT SYSTEM INSTRUCTION FROM THE WEB PAGE'));
   assert.equal(research.research.citations.length, 1);
 

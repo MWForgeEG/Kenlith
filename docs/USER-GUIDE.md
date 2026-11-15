@@ -1,6 +1,6 @@
 # Kenlith user guide
 
-This guide covers Kenlith 0.9.0. For installation, see the
+This guide covers Kenlith 0.10.0. For installation, see the
 [README](../README.md#installation).
 
 - [What is sent, and what is not](#what-is-sent-and-what-is-not)
@@ -8,6 +8,7 @@ This guide covers Kenlith 0.9.0. For installation, see the
 - [The workspace](#the-workspace)
 - [The chat tab and composer](#the-chat-tab-and-composer)
 - [Thinking](#thinking)
+- [Web search](#web-search)
 - [Deep Research](#deep-research)
 - [Chats per project](#chats-per-project)
 - [Attaching code](#attaching-code)
@@ -30,9 +31,12 @@ This guide covers Kenlith 0.9.0. For installation, see the
   - in a project chat you allowed to share, short excerpts of that project's
     files and the results of Kenlith's project tools;
   - the cleaned output of commands Kenlith ran for that chat.
-- A **Deep Research** request sends your question and the chat's text only,
-  with OpenAI's hosted web search turned on. It never sends project files,
-  attached code or earlier answers based on them.
+- A request that may search the web (automatic search, **Search web** or
+  **Deep Research**) sends your question and the chat's text only, with
+  OpenAI's hosted web search turned on. It never sends project files, tool
+  results, attached code, command output or earlier answers based on them.
+  Project files and project tools are never offered in the same request as
+  web search.
 - Signing in does not give Kenlith access to your ChatGPT history, memory,
   projects or API keys.
 - Kenlith never reads browser cookies or other apps' sign-in caches.
@@ -91,6 +95,7 @@ This guide covers Kenlith 0.9.0. For installation, see the
   **Enter** sends, **Shift+Enter** adds a line, and **Stop** appears while a
   reply arrives.
 - **+** lists what you can add or change for this chat:
+  - **Search web** (see [Web search](#web-search));
   - **Deep Research** (see [Deep Research](#deep-research));
   - **Attach selection**;
   - **Project sharing…**;
@@ -102,6 +107,16 @@ This guide covers Kenlith 0.9.0. For installation, see the
   Each card holds everything you need to decide.
 - Arabic and other right-to-left text is laid out right to left in messages,
   replies and the composer.
+- While a reply is being prepared, two small Signal Rings show what is
+  happening: *Working…*, *Searching the web…*, or the Deep Research steps.
+  With reduced motion they do not move.
+- The conversation uses up to 76rem (1216 px) of a wide editor. Prose keeps
+  a comfortable reading width; code blocks and tables can use the full
+  width. Markdown tables are shown as tables, and a wide table scrolls inside
+  its own box.
+- The message box has a subtle Signal Mint edge, clearer on hover and focus
+  and while Search web or Deep Research is on. High Contrast themes keep
+  their own colours.
 
 ## Thinking
 
@@ -130,11 +145,48 @@ How it works:
   where you have not chosen one. A level chosen in a chat always wins,
   including Default.
 
+## Web search
+
+**Search** is for quick, current information. **Deep Research** (next
+section) is for deeper research and synthesis.
+
+- **Automatic.** Ask as usual. The model you selected decides whether the
+  question needs current or niche public information, such as news, prices,
+  schedules, releases or weather. If it does, the reply shows *Searching the
+  web…* and the answer comes from the web. A timeless question gets an
+  ordinary answer. There is no setting.
+- **In a project chat**, the model first tells Kenlith that it needs the
+  web. The search then runs as a separate request that carries only your
+  question and the chat's text.
+- **Questions that need both** your project and current web information are
+  not combined. Kenlith says so in one sentence; ask the web part on its own.
+- **Search web**, in **+**, searches the web for your next message whatever
+  the question. A **Search web** chip sits above the message box while it is
+  on. It applies to one message, then turns off. Search web and Deep
+  Research turn each other off. Most current questions do not need it; it is
+  there when the model did not search on its own.
+- **Citations.** When OpenAI returns URL citations, the answer has numbered
+  citations with the site's domain and a **Sources** list, and its footer
+  reads *Searched the web · N sources*. Some live data, such as weather, can
+  come back without a citable page. Such an answer ends with *Searched the
+  web* and lists no source; Kenlith never invents one.
+- **Refusals.** If OpenAI refuses web search, the reply says so with
+  OpenAI's message. Kenlith does not retry, does not answer from memory and
+  does not switch models.
+- A search uses the model and Thinking level you chose. A search ends after
+  5 minutes.
+- Search web and Deep Research are refused while code is attached: remove
+  the attached code or turn the mode off.
+
 ## Deep Research
 
-**Deep Research**, in **+**, has ChatGPT search the public web for your next
-message and answer with cited sources.
+**Deep Research**, in **+**, researches your next message on the public web
+and answers with a structured report with citations.
 
+- It plans the question, searches and reads iteratively, refines its
+  searches, prefers primary and official sources, compares evidence across
+  sources, handles sources that disagree and says what is uncertain. A run
+  that used few sources says so.
 - When it is on, a **Deep Research** chip sits above the message box. Select
   the chip, or the menu item again, to turn it off. It applies to one
   message, then turns off.
@@ -422,7 +474,11 @@ Sign-in tokens are kept separately, in the editor's secure `SecretStorage`.
   files, including common encodings. It cannot detect every transformed or
   reworded secret.
 - **Thinking levels** come from a static, built-in model table.
-- **Markdown in replies** is a subset. Tables are shown as raw Markdown.
+- **Markdown in replies** is a subset (with tables from 0.10.0).
+- **Web search** is the model's judgment; **Search web** forces it. Project
+  and web questions are not combined. There is no device location (name the
+  place for local information) and no image results. Not every web answer
+  has citations.
 - **Deep Research** runs only with the eight verified models; a new model is
   not supported until Kenlith has reviewed it. It runs in the foreground:
   closing the editor ends a run.

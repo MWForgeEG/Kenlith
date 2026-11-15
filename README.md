@@ -17,9 +17,10 @@
 
 Kenlith is an open-source extension for **VS Code** and **Antigravity IDE**.
 It lets you talk to ChatGPT about the project you have open, in an editor tab
-next to your code. With **Deep Research**, ChatGPT can also search the public
-web and answer with cited sources. You sign in with your ChatGPT account.
-Kenlith needs no OpenAI API key.
+next to your code. When a question needs current information, ChatGPT
+searches the public web by itself, and **Deep Research** goes further with
+multi-step research and a cited report. You sign in with your ChatGPT
+account. Kenlith needs no OpenAI API key.
 
 Kenlith is built for developers who want ChatGPT's help with a real codebase
 and want to stay in control. Kenlith reads your files locally and decides, in
@@ -28,7 +29,7 @@ allowed are sent. Every file change is shown to you
 before it is applied, and commands that could change anything wait for your
 approval.
 
-![Kenlith 0.9.0: two chats in editor tabs, one in Arabic, each showing its project and sharing status. Deep Research is on in both composers, next to the + button, the model and the Thinking level.](docs/assets/kenlith-0.9.0-editor.png)
+![Kenlith 0.10.0: an Arabic chat in an editor tab with a web answer that carries inline citations, the footer "Searched the web · 7 sources" and a Sources list. The + menu is open with Search web, Deep Research, Attach selection, Project sharing and Project context settings; the composer shows GPT-6.1-Sol and Thinking High.](docs/assets/kenlith-0.10.0-editor.png)
 
 > Kenlith is an independent open-source project. It is not affiliated with or
 > endorsed by OpenAI, Microsoft, Google, Anthropic, or the VS Code project.
@@ -66,9 +67,17 @@ approval.
 - **Model selection** per chat.
 - **Thinking Effort** per chat: **Default**, **Low**, **Medium**, **High**,
   **Extra High** or **Max**. Default lets the model use its own level.
-- **Deep Research** for your next message: ChatGPT searches the public web
-  with OpenAI's hosted web search and answers with numbered citations and a
-  **Sources** list. It never carries project files or attached code.
+- **Automatic web search.** When a question needs current or niche public
+  information, the model searches the web with OpenAI's hosted web search
+  and answers from it, with citations and a **Sources** list when OpenAI
+  provides them. Timeless questions stay ordinary chat.
+- **Search web** (in **+**) forces a search for your next message.
+- **Deep Research** (in **+**) for questions that need more than a quick
+  answer: iterative searching, primary sources, comparison of evidence and a
+  structured, cited report.
+- **Web and project kept apart.** Web search never carries project files,
+  tool results or attached code.
+- **Markdown tables** and a wide, responsive conversation layout.
 - **Arabic and right-to-left text** in messages, replies and the composer.
 - **Persistent local conversations.** Chats and unsent drafts are saved on
   your computer, separate from chatgpt.com.
@@ -119,10 +128,10 @@ From a terminal:
 
 ```shell
 # VS Code
-code --install-extension kenlith-antigravity-0.9.1.vsix
+code --install-extension kenlith-antigravity-0.10.0.vsix
 
 # Antigravity IDE
-antigravity-ide --install-extension kenlith-antigravity-0.9.1.vsix
+antigravity-ide --install-extension kenlith-antigravity-0.10.0.vsix
 ```
 
 The same `.vsix` works in both editors; `antigravity` in the file name and the
@@ -179,11 +188,13 @@ In short (details in [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md)):
 - **Output filtering.** Before command output is sent, Kenlith removes
   credential-like text, private keys, values from your secret files, long
   random-looking strings and paths outside the project.
-- **Deep Research is public web research only.** A research request carries
-  your question and the chat's text. It never carries project files,
-  attached code or earlier answers based on them, and it offers no project
-  tools. Web pages and citations are treated as data, and links open only
-  after you confirm the address.
+- **Web search is kept apart from your project.** Public web search never
+  runs in the same request as project files or project tools. A web request
+  carries your question and the chat's text only: never project files, tool
+  results, attached code, command output or earlier answers based on them.
+  A question that needs both your project and current web information is
+  not combined; Kenlith says so instead. Web pages and citations are treated
+  as data, and links open only after you confirm the address.
 - **Workspace Trust.** Kenlith does not run in Restricted Mode (a folder you
   have not marked as trusted in the editor).
 - **Not a sandbox.** Commands that Kenlith runs are ordinary processes on
@@ -207,16 +218,24 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
   levels only for models in its built-in list, which follows OpenAI's model
   documentation. Other models offer Default only. Thinking Effort has been
   verified live on `gpt-6.1-sol` only.
-- **Deep Research runs only with verified models.** From 0.9.1 these are
+- **Web search and Deep Research run only with verified models.** These are
   `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`,
   `gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna`. With any other model,
-  including new models your account starts to list, Kenlith sends nothing
-  and asks you to choose a supported model.
+  including new models your account starts to list, chat works without web
+  search, and Search web or Deep Research sends nothing and asks you to
+  choose a supported model.
 - **Deep Research runs in the foreground.** Closing the editor ends a run;
   the reply is kept as interrupted and offers **Retry**. There is no
   background research.
-- **Markdown tables are shown as raw Markdown**, in research answers as in
-  other replies.
+- **Web search is the model's judgment.** The model decides when a question
+  needs the web. Use **Search web** to force a search.
+- **Project and web questions are not combined.** Ask the web part on its
+  own.
+- **Not every web answer has citations.** Some live data, such as weather,
+  comes without a citable page; such an answer says *Searched the web* and
+  lists no source.
+- **No device location and no image results.** For local information, name
+  the place.
 - **Arabic paragraphs that begin with a Latin word** (for example a product
   name) may be laid out left to right.
 - **Some citations appear only under Sources.** When Kenlith cannot place a

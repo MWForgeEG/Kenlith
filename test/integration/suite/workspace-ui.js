@@ -60,6 +60,23 @@ async function run(engine, context) {
     entry.research = Boolean(options.request?.research);
     entry.researchTools = options.request?.research ? options.request.research.tools : null;
     entry.researchToolChoice = options.request?.research ? options.request.research.toolChoice : null;
+    // 0.10.0: the web mode, and whether the request offered Path A search or the signal.
+    entry.researchMode = options.request?.research ? options.request.research.mode : null;
+    entry.autoWeb = Boolean(options.request?.autoWeb);
+    entry.signal = Boolean(options.request?.signal);
+    // 0.10.0 (research-ui.js): "TABLEDEMO" answers with a wide Markdown table;
+    // "SLOWSTART" waits 3 s before its first text (the Working… indicator).
+    const asked = options.messages.at(-1).content;
+    if (!options.request?.research && (asked.includes('TABLEDEMO') || asked.includes('SLOWSTART'))) {
+      if (options.preflight) await options.preflight();
+      if (asked.includes('SLOWSTART')) await new Promise((resolve, reject) => { const t = setTimeout(resolve, 3000); options.signal.addEventListener('abort', () => { clearTimeout(t); reject(Object.assign(new Error('aborted'), { name: 'AbortError' })); }); });
+      const columns = Array.from({ length: 14 }, (_, i) => `Column_${i + 1}_with_a_long_unbroken_heading`);
+      const text = asked.includes('TABLEDEMO')
+        ? `Here is the comparison.\n\n| ${columns.join(' | ')} |\n| ${columns.map((_, i) => (i === 1 ? '--:' : i === 2 ? ':-:' : '---')).join(' | ')} |\n| ${columns.map((_, i) => `value ${i + 1}`).join(' | ')} |\n| ${columns.map((_, i) => (i === 0 ? 'القاهرة' : `v${i + 1}`)).join(' | ')} |\n\nA closing paragraph that is long enough to show the readable measure of prose inside the wider workspace, which should stay near forty-eight rem even when the editor is wide.`
+        : 'Started after a pause.';
+      for (const chunk of text.match(/[\s\S]{1,40}/g)) { if (options.signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' }); options.onDelta(chunk); await sleep(10); }
+      return text;
+    }
     if (options.request?.research && process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE) {
       if (options.preflight) await options.preflight();
       const fixture = JSON.parse(fs.readFileSync(process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE, 'utf8'));
@@ -139,7 +156,7 @@ async function run(engine, context) {
               result.chats[key] = { title: chat.title, model: chat.model, reasoningEffort: chat.reasoningEffort, messages: chat.messages.length };
             }
             // 0.8.0: what the (fake) transport received, synthetic text only.
-            result.requests = requests.map((entry) => ({ model: entry.model, effort: entry.effort, question: entry.question, research: entry.research, researchTools: entry.researchTools, researchToolChoice: entry.researchToolChoice, tools: entry.tools }));
+            result.requests = requests.map((entry) => ({ model: entry.model, effort: entry.effort, question: entry.question, research: entry.research, researchTools: entry.researchTools, researchToolChoice: entry.researchToolChoice, tools: entry.tools, researchMode: entry.researchMode, autoWeb: entry.autoWeb, signal: entry.signal }));
             // 0.9.0: the stored research record of each chat's last reply.
             for (const [key, id] of Object.entries({ a: a.id, h: h.id })) {
               const last = (await store.getConversation(id)).messages.filter((m) => m.role === 'assistant').at(-1);

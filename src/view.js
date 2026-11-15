@@ -453,9 +453,10 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     /* 0.4.0 editor tab: the chat fills the editor. Text keeps a readable
        measure, centred, while code blocks may use the full width. */
     body[data-mode="panel"] .composer { background: var(--vscode-editor-background); }
-    body[data-mode="panel"] #messages { padding: 16px max(16px, calc((100% - 56rem) / 2)); }
-    body[data-mode="panel"] .header { padding-inline: max(10px, calc((100% - 56rem) / 2)); }
-    body[data-mode="panel"] .composer { padding-inline: max(10px, calc((100% - 56rem) / 2)); }
+    body[data-mode="panel"] #messages { padding: 16px max(16px, calc((100% - 76rem) / 2)); }
+    /* 0.10.0: header and composer keep the messages' gutters, so their edges line up. */
+    body[data-mode="panel"] .header { padding-inline: max(16px, calc((100% - 76rem) / 2)); }
+    body[data-mode="panel"] .composer { padding-inline: max(16px, calc((100% - 76rem) / 2)); }
     body[data-mode="panel"] .message.user { margin-inline-start: min(15%, 8rem); }
     /* UX-05: in a tab the side bar already shows the account and usage, so the
        header keeps only the project and the model; the title is in the tab. */
@@ -602,6 +603,53 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     .menu-item[aria-checked="true"] .menu-check { visibility: visible; }
     .research-status { margin-bottom: 6px; font-size: 12px; color: var(--vscode-descriptionForeground); }
     .research-meta { margin-top: 8px; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    /* 0.10.0 (DEC-PLANCHAT-045): Kenlith colour tokens from the editor-tab
+       palette, chosen by the theme kind VS Code sets on the body. Every edge
+       is at least 3:1 against the editor background; High Contrast keeps the
+       theme's own colours. */
+    body {
+      --kl-mint: #B4F0CD; --kl-green: #2FA36B; --kl-deep: #1E7A4E;
+      --kl-edge: color-mix(in srgb, var(--kl-mint) 25%, var(--field-border));
+      --kl-edge-hover: color-mix(in srgb, var(--kl-mint) 60%, var(--field-border));
+      --kl-focus: var(--kl-mint);
+      --kl-active: var(--kl-mint);
+    }
+    body.vscode-light {
+      --kl-edge: color-mix(in srgb, var(--kl-green) 50%, var(--field-border));
+      --kl-edge-hover: color-mix(in srgb, var(--kl-deep) 60%, var(--field-border));
+      --kl-focus: var(--kl-deep);
+      --kl-active: var(--kl-deep);
+    }
+    body.vscode-high-contrast, body.vscode-high-contrast-light {
+      --kl-edge: var(--vscode-contrastBorder, var(--field-border));
+      --kl-edge-hover: var(--vscode-contrastBorder, var(--field-border));
+      --kl-focus: var(--vscode-focusBorder);
+      --kl-active: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+    }
+    body[data-mode="panel"] .composer-box { border-color: var(--kl-edge); }
+    body[data-mode="panel"] .composer-box:hover { border-color: var(--kl-edge-hover); }
+    body[data-mode="panel"] .composer-box.web-on { border-color: var(--kl-active); }
+    body[data-mode="panel"] .composer-box:focus-within { border-color: var(--kl-focus); box-shadow: 0 0 0 1px var(--kl-focus); }
+    /* 0.10.0: the activity indicator, two Signal Rings; the outer one pulses.
+       Reduced motion stops it (the global rule above); both rings stay. */
+    .kl-activity { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: var(--vscode-descriptionForeground); min-height: 16px; }
+    .kl-rings { inline-size: 14px; block-size: 14px; flex: none; }
+    .kl-rings circle { fill: none; stroke: var(--kl-focus); stroke-width: 1.6; }
+    .kl-rings .kl-ring-outer { transform-origin: 7px 7px; animation: kl-pulse 1.6s ease-in-out infinite; }
+    @keyframes kl-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.86); } 50% { opacity: 1; transform: scale(1); } }
+    /* 0.10.0: Markdown tables; a wide one scrolls inside its own box. */
+    .table-wrap { overflow-x: auto; max-inline-size: 100%; margin-block: 6px; }
+    .table-wrap table { border-collapse: collapse; font-size: 12px; }
+    .table-wrap th, .table-wrap td { border: 1px solid var(--field-border); padding: 4px 8px; text-align: start; vertical-align: top; overflow-wrap: normal; word-break: normal; }
+    /* The bubble breaks long words anywhere; table cells do not, so a wide table keeps its columns and scrolls. */
+    .table-wrap th { font-weight: 600; }
+    .table-wrap .align-start { text-align: start; }
+    .table-wrap .align-center { text-align: center; }
+    .table-wrap .align-end { text-align: end; }
+    /* 0.10.0: in a tab, prose keeps a readable measure inside the wider
+       workspace; code, tables and cards use all of it. Logical properties, so
+       a right-to-left paragraph sits against the right edge. */
+    body[data-mode="panel"] .message.assistant .bubble > :is(p, ul, ol, blockquote, h3, h4, h5, h6, .reply-state, .error-note, .research-meta, .depth-note, details.sources) { max-inline-size: 48rem; margin-inline-end: auto; }
     a.citation {
       display: inline-flex; align-items: baseline; gap: 3px;
       margin-inline: 2px; padding: 0 5px;
@@ -735,12 +783,14 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
             <button id="attachRemove" class="secondary" type="button">Remove</button>
           </div>
         </section>
+        <!-- 0.10.0: the activity indicator's two Signal Rings, cloned by activityElement(). -->
+        <template id="klRings"><svg class="kl-rings" viewBox="0 0 14 14" aria-hidden="true" focusable="false"><circle class="kl-ring-outer" cx="7" cy="7" r="6"/><circle cx="7" cy="7" r="2.6"/></svg></template>
         <div id="composerBox" class="composer-box">
           <!-- 0.9.0: Deep Research is on for the next Send. Selecting the chip turns it off. -->
           <div id="researchRow" class="research-row hidden">
             <button id="researchChip" class="research-chip" type="button" aria-pressed="true" aria-describedby="researchHint" title="Deep Research is on: your next message searches the web and answers with cited sources. Select to turn it off.">
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="5" cy="5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 7.5L10.5 10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-              <span>Deep Research</span>
+              <span id="researchChipLabel">Deep Research</span>
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
             </button>
             <span id="researchHint" class="visually-hidden">On for your next message. Select to turn Deep Research off.</span>
@@ -749,10 +799,11 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
           <div id="composerBar" class="actions composer-bar">
             <!-- 0.7.0 RC2 (DEC-PLANCHAT-035): in the editor tab, actions are under + .
                  Only things Kenlith can do; each item posts an existing message. -->
-            <button id="plus" class="icon-button hidden" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="plusMenu" aria-label="Actions: Deep Research, attach selection, project sharing, project settings" title="Actions">
+            <button id="plus" class="icon-button hidden" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="plusMenu" aria-label="Actions: Search web, Deep Research, attach selection, project sharing, project settings" title="Actions">
               <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2v10M2 7h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
             </button>
             <div id="plusMenu" class="plus-menu hidden" role="menu" aria-labelledby="plus">
+              <button id="menuSearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Search web<span class="menu-check" aria-hidden="true">✓</span></span><span class="menu-desc">Search the web for your next message. Sends only your question and this chat, never project files.</span></button>
               <button id="menuResearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Deep Research<span class="menu-check" aria-hidden="true">✓</span></span><span class="menu-desc">Search the web and answer with cited sources. Sends only your question and this chat, never project files.</span></button>
               <button id="menuAttach" class="menu-item" type="button" role="menuitem"><span class="menu-label">Attach selection</span><span class="menu-desc">The code selected in the editor. You review it before it is sent.</span></button>
               <button id="menuSharing" class="menu-item" type="button" role="menuitem"><span class="menu-label">Project sharing…</span><span class="menu-desc">See or stop what projects share with OpenAI.</span></button>
@@ -832,6 +883,11 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       menuResearch: document.getElementById('menuResearch'),
       researchRow: document.getElementById('researchRow'),
       researchChip: document.getElementById('researchChip'),
+      // 0.10.0: Search web, the chip's label and hint, and the box it marks.
+      menuSearch: document.getElementById('menuSearch'),
+      researchChipLabel: document.getElementById('researchChipLabel'),
+      researchHint: document.getElementById('researchHint'),
+      composerBox: document.getElementById('composerBox'),
       messages: document.getElementById('messages'),
       jump: document.getElementById('jump'),
       signedOut: document.getElementById('signedOut'),
@@ -919,12 +975,46 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     function announce(text) { speak(elements.announcer, text); }
     // 0.9.0 Deep Research.
     const DEFAULT_PLACEHOLDER = 'Message ChatGPT…';
-    function setResearch(on, spoken) {
-      state.research = Boolean(on) && MODE === 'panel';
-      setHidden(elements.researchRow, !state.research);
+    // 0.10.0: one web mode for the next Send: 'search' (Search web),
+    // 'deep-research', or none. The two exclude each other; one chip shows it.
+    function setWebMode(mode, spoken) {
+      const next = MODE === 'panel' && (mode === 'search' || mode === 'deep-research') ? mode : undefined;
+      const before = state.webMode;
+      state.webMode = next;
+      state.research = next === 'deep-research';
+      state.search = next === 'search';
+      setHidden(elements.researchRow, !next);
+      elements.composerBox.classList.toggle('web-on', Boolean(next));
       elements.menuResearch.setAttribute('aria-checked', String(state.research));
-      elements.prompt.placeholder = state.research ? 'Ask a research question…' : DEFAULT_PLACEHOLDER;
-      if (spoken) announce(state.research ? 'Deep Research on. Your next message searches the web and answers with cited sources.' : 'Deep Research off.');
+      elements.menuSearch.setAttribute('aria-checked', String(state.search));
+      elements.researchChipLabel.textContent = next === 'search' ? 'Search web' : 'Deep Research';
+      elements.researchChip.title = next === 'search'
+        ? 'Search web is on: your next message searches the web. Select to turn it off.'
+        : 'Deep Research is on: your next message searches the web and answers with cited sources. Select to turn it off.';
+      elements.researchHint.textContent = next === 'search' ? 'On for your next message. Select to turn Search web off.' : 'On for your next message. Select to turn Deep Research off.';
+      elements.prompt.placeholder = next === 'deep-research' ? 'Ask a research question…' : next === 'search' ? 'Ask a question to search the web…' : DEFAULT_PLACEHOLDER;
+      if (spoken) {
+        if (next === 'search') announce('Search web on. Your next message searches the web.');
+        else if (next === 'deep-research') announce('Deep Research on. Your next message searches the web and answers with cited sources.');
+        else announce(before === 'search' ? 'Search web off.' : 'Deep Research off.');
+      }
+    }
+    function setResearch(on, spoken) {
+      setWebMode(on ? 'deep-research' : undefined, spoken);
+      elements.menuResearch.setAttribute('aria-checked', String(state.research));
+    }
+    // 0.10.0: the compact Kenlith activity indicator (two Signal Rings) with
+    // the state it stands for. Reduced motion: the rings stay, unmoving.
+    function activityElement(text) {
+      const node = document.createElement('div');
+      node.className = 'kl-activity';
+      node.setAttribute('role', 'status');
+      const rings = document.getElementById('klRings');
+      if (rings && rings.content && rings.content.firstElementChild) node.append(rings.content.firstElementChild.cloneNode(true));
+      const label = document.createElement('span');
+      label.textContent = text;
+      node.append(label);
+      return node;
     }
     const RESEARCH_PHASES = { preparing: 'Preparing research…', searching: 'Searching the web…', reading: 'Reading sources…', synthesizing: 'Synthesizing…' };
     const plural = (count, one, many) => count + ' ' + (count === 1 ? one : many);
@@ -982,6 +1072,15 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         return;
       }
       elements.prompt.value = question; fitPrompt();
+      // 0.10.0: a Search run comes back with Search web on.
+      const retried = state.messages.get(messageId);
+      if (retried && retried.research && retried.research.mode === 'search') {
+        setWebMode('search');
+        elements.prompt.focus();
+        saveDraftSoon();
+        announce('Your question is back in the message box with Search web on. Press Send to search again.');
+        return;
+      }
       setResearch(true);
       elements.prompt.focus();
       saveDraftSoon();
@@ -1537,7 +1636,8 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         && !(item.live && item.content.length > LIVE_MARKDOWN_LIMIT);
       // 0.9.0: a Deep Research answer is rendered with its citations, which
       // come from OpenAI's annotations only (md.renderCited checks each place).
-      const research = item.role === 'assistant' && item.research && item.research.mode === 'deep-research' ? item.research : undefined;
+      // 0.10.0: a Search answer the same way ('search').
+      const research = item.role === 'assistant' && item.research && (item.research.mode === 'deep-research' || item.research.mode === 'search') ? item.research : undefined;
       const citations = research && Array.isArray(research.citations) ? research.citations : [];
       item.bubble.replaceChildren(markdown ? (citations.length ? md.renderCited(document, item.content, citations) : md.render(document, item.content)) : md.renderPlain(document, item.content));
       // A failed reply that kept partial text says why under it. The reason
@@ -1576,6 +1676,10 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       }
       // 0.9.0: the research status, counts, Sources and Retry, last.
       if (research) renderResearch(item, research, citations);
+      // 0.10.0: an ordinary reply before its first text says Kenlith is working.
+      else if (item.role === 'assistant' && (item.live || item.inProgress) && !item.content && !item.error && !item.stopped && !item.interrupted && !item.replyingElsewhere) {
+        item.bubble.prepend(activityElement('Working…'));
+      }
     }
     // While the run streams: one quiet status line from the observed steps.
     // When it has ended: the counts, the Sources, and Retry for a run that
@@ -1583,24 +1687,41 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     function renderResearch(item, research, citations) {
       const { sources } = md.citationSources(item.content, citations);
       const running = (item.live || item.inProgress) && !item.error && !item.stopped && !item.interrupted && !item.replyingElsewhere;
+      const search = research.mode === 'search';
       if (running) {
-        const status = document.createElement('div');
-        status.className = 'research-status';
-        status.setAttribute('role', 'status');
-        status.textContent = ['Deep Research · ' + (RESEARCH_PHASES[research.phase] || RESEARCH_PHASES.preparing), ...researchCounts(research, sources.length)].join(' · ');
+        // 0.10.0: the Signal Rings indicator. Search: one line until the
+        // answer text arrives. Deep Research: its observed phase and counts.
+        if (search && item.content) return;
+        const status = activityElement(search
+          ? 'Searching the web…'
+          : ['Deep Research · ' + (RESEARCH_PHASES[research.phase] || RESEARCH_PHASES.preparing), ...researchCounts(research, sources.length)].join(' · '));
+        status.classList.add('research-status');
         item.bubble.prepend(status);
         return;
       }
       const meta = document.createElement('div');
       meta.className = 'research-meta';
-      meta.textContent = ['Deep Research', ...researchCounts(research, 0)].join(' · ');
+      // 0.10.0 (D3): a Search answer says it searched; sources only when cited.
+      meta.textContent = search
+        ? (sources.length ? 'Searched the web · ' + plural(sources.length, 'source', 'sources') : 'Searched the web')
+        : ['Deep Research', ...researchCounts(research, 0)].join(' · ');
       item.bubble.append(meta);
       if (sources.length) item.bubble.append(sourcesElement(sources));
-      else if (!item.error && !item.stopped && !item.interrupted && item.content) {
+      else if (!search && !item.error && !item.stopped && !item.interrupted && item.content) {
         const none = document.createElement('div');
         none.className = 'reply-state';
         none.textContent = 'No sources were cited in this answer. Treat it as unverified.';
         item.bubble.append(none);
+      }
+      // 0.10.0: a Deep Research run that turned out shallow says so (counts only).
+      if (!search && !item.error && !item.stopped && !item.interrupted && item.content) {
+        const hosts = new Set(sources.map((source) => { try { return new URL(source.url).hostname; } catch { return ''; } }).filter(Boolean));
+        if ((Number(research.searches) || 0) < 2 || hosts.size < 2) {
+          const shallow = document.createElement('div');
+          shallow.className = 'reply-state depth-note';
+          shallow.textContent = 'This run used few sources; the report may be less thorough than usual.';
+          item.bubble.append(shallow);
+        }
       }
       if (item.error || item.stopped || item.interrupted) {
         const retry = document.createElement('button');
@@ -1608,7 +1729,7 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         retry.className = 'action secondary research-retry';
         retry.dataset.researchRetry = '';
         retry.textContent = 'Retry';
-        retry.setAttribute('aria-label', 'Retry Deep Research: put the question back in the message box');
+        retry.setAttribute('aria-label', search ? 'Retry the web search: put the question back in the message box' : 'Retry Deep Research: put the question back in the message box');
         item.bubble.append(retry);
       }
     }
@@ -1859,13 +1980,20 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         case 'researchProgress': {
           const item = state.messages.get(message.messageId);
           if (!item) break;
-          item.research = { mode: 'deep-research', phase: message.phase, searches: Number(message.searches) || 0, pagesRead: Number(message.pagesRead) || 0, citations: Array.isArray(message.citations) ? message.citations : [] };
+          // 0.10.0: Search ('search') or Deep Research, as the host says.
+          const mode = message.mode === 'search' ? 'search' : 'deep-research';
+          item.research = { mode, ...(mode === 'search' && message.trigger ? { trigger: message.trigger } : {}), phase: message.phase, searches: Number(message.searches) || 0, pagesRead: Number(message.pagesRead) || 0, citations: Array.isArray(message.citations) ? message.citations : [] };
           if (!item.live) { item.live = true; renderReplyContext(item); }
-          if (state.researchSpoken.get(message.messageId) !== message.phase && RESEARCH_PHASES[message.phase]) {
-            state.researchSpoken.set(message.messageId, message.phase);
-            announce('Deep Research: ' + RESEARCH_PHASES[message.phase]);
+          if (mode === 'search') {
+            if (!state.researchSpoken.has(message.messageId)) { state.researchSpoken.set(message.messageId, 'search'); announce('Searching the web…'); }
+            elements.replyStatus.textContent = 'Kenlith is searching the web… Press Escape or Stop to stop it.';
+          } else {
+            if (state.researchSpoken.get(message.messageId) !== message.phase && RESEARCH_PHASES[message.phase]) {
+              state.researchSpoken.set(message.messageId, message.phase);
+              announce('Deep Research: ' + RESEARCH_PHASES[message.phase]);
+            }
+            elements.replyStatus.textContent = 'Deep Research is running… Press Escape or Stop to stop it.';
           }
-          elements.replyStatus.textContent = 'Deep Research is running… Press Escape or Stop to stop it.';
           scheduleRender(message.messageId);
           break;
         }
@@ -1891,7 +2019,7 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         case 'restoreDraft':
           // 0.9.0: a refused Send that carried Deep Research turns it back on,
           // only for that same text, and only into an empty message box.
-          if (state.researchAwaiting && message.text === state.researchText && !elements.prompt.value) setResearch(true);
+          if (state.researchAwaiting && message.text === state.researchText && !elements.prompt.value) setWebMode(state.awaitingMode || 'deep-research');
           state.researchAwaiting = false;
           // A refused message comes back for correction, unless the user has
           // already started typing something else.
@@ -2065,7 +2193,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     elements.menuSettings.addEventListener('click', fromMenu(() => post('openProjectSettings')));
     // 0.9.0: Deep Research on or off for the next Send; the message box keeps focus.
     elements.menuResearch.addEventListener('click', () => { setMenuOpen(false); setResearch(!state.research, true); elements.prompt.focus(); });
-    elements.researchChip.addEventListener('click', () => { setResearch(false, true); elements.prompt.focus(); });
+    // 0.10.0: Search web, one Send; choosing it turns Deep Research off and the reverse.
+    elements.menuSearch.addEventListener('click', () => { setMenuOpen(false); setWebMode(state.search ? undefined : 'search', true); elements.prompt.focus(); });
+    elements.researchChip.addEventListener('click', () => { setWebMode(undefined, true); elements.prompt.focus(); });
     elements.attachConfirm.addEventListener('change', () => {
       if (state.attachment) elements.attachApprove.disabled = !elements.attachConfirm.checked;
     });
@@ -2216,7 +2346,14 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         announce('Deep Research sends only your question and this chat, never attached code. Remove the attached code or turn off Deep Research.');
         return;
       }
+      // 0.10.0: neither does Search web.
+      if (state.search && state.attachment) {
+        announce('Search web sends only your question and this chat, never attached code. Remove the attached code or turn off Search web.');
+        return;
+      }
       const research = state.research;
+      const search = state.search;
+      const webMode = state.webMode;
       elements.prompt.value = ''; fitPrompt();
       showError('');
       state.follow = true;
@@ -2225,8 +2362,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       // A new id per Send: the extension sends a message once even if this arrives twice.
       // 0.8.0: the Thinking level shown is the level requested (checked again by the host).
       // 0.9.0: Deep Research applies to this Send only, and is sent as true or not at all.
-      post('send', { text, model: elements.models.value, effort: state.reasoning && elements.effort.value ? elements.effort.value : undefined, attachmentId: state.attachment ? state.attachment.id : undefined, sendId: sendIdOf(), draftRev: Date.now(), ...(research ? { research: true } : {}) });
-      if (research) { state.researchAwaiting = true; state.researchText = text; setResearch(false); }
+      // 0.10.0: Search web the same way ("search: true"); never both.
+      post('send', { text, model: elements.models.value, effort: state.reasoning && elements.effort.value ? elements.effort.value : undefined, attachmentId: state.attachment ? state.attachment.id : undefined, sendId: sendIdOf(), draftRev: Date.now(), ...(research ? { research: true } : search ? { search: true } : {}) });
+      if (webMode) { state.researchAwaiting = true; state.researchText = text; state.awaitingMode = webMode; setWebMode(undefined); }
     }
 
     post('ready');

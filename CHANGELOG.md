@@ -5,6 +5,70 @@ kept for reference; the release packages of versions before 0.8.0 are not
 published in this repository. Entries before 0.4.1 use the earlier setting
 names (`planChat.*`); the settings are now `kenlith.*`.
 
+## 0.10.0 (2026-11-15)
+
+**Summary.** Web access feels natural: normal chat searches the web by itself
+when a question needs current information, **Search web** forces a search
+for one message, and Deep Research does real multi-step research. Also a
+wider conversation, Markdown tables, clearer activity feedback and a subtle
+Kenlith-green message box.
+
+- **Automatic Search.** Ask as usual. The model you selected decides whether
+  the question needs current or niche public information. If it does, the
+  reply shows *Searching the web…* and answers from the web; a timeless
+  question stays an ordinary answer. No setting, no prompt.
+- **Citations when OpenAI provides them.** Citations and **Sources** appear
+  when OpenAI returns URL citations. Some live data, such as weather, can
+  come back without a citable page: such an answer ends with *Searched the
+  web* and lists no source. Kenlith never makes one up.
+- **Search web**, in **+**, searches the web for your next message whatever
+  the question. It is a manual override for one message; questions that
+  automatic Search recognizes do not need it.
+- **Deep Research** now researches. It plans the question, searches and
+  reads iteratively, refines its searches, prefers primary and official
+  sources, compares evidence across sources, handles sources that disagree,
+  says what is uncertain, and writes a structured report with citations. A
+  run that used few sources says so. Search is for quick, current answers;
+  Deep Research is for deeper research and synthesis.
+- **Search web and Deep Research** turn each other off, and each applies to
+  one message. Neither carries attached code.
+- **Web and project stay separate.** Public web search never runs in the
+  same request as your project's files and tools. In a project chat the
+  search runs as its own request with only your question and the chat's
+  text, never project files, tool results, attached code, command output or
+  answers based on them. If a question needs both your project and current
+  web information, Kenlith says so in one sentence instead of combining
+  them.
+- **Refusals.** If OpenAI refuses web search, the reply says so with
+  OpenAI's message. Kenlith does not retry, does not answer from memory and
+  does not switch models.
+- **Activity feedback:** two small Signal Rings with *Working…*, *Searching
+  the web…* or the Deep Research steps, from what actually happens. With
+  reduced motion they do not move.
+- **Message box:** a subtle Signal Mint edge, clearer on hover and focus and
+  while Search web or Deep Research is on. High Contrast themes keep their
+  own colours.
+- **Wider conversation:** up to 76rem (1216 px) on a wide editor. Prose keeps
+  a comfortable reading width; code and tables can use the full width.
+- **Markdown tables** in replies, with column alignment. A wide table scrolls
+  inside its own box.
+- Unchanged: Model and Thinking (the model you selected is always used),
+  project sharing, Review Before Apply, commands, the icons.
+
+**Known limitations.**
+
+- Questions that need both your project and current web information are not
+  combined automatically. Ask the web part on its own.
+- Whether to search is the model's judgment. **Search web** is the manual
+  override.
+- Deep Research runs in the foreground; closing the editor ends a run.
+- No device location: ask with a place name for local information.
+- No image results from web search.
+- GPT-5.6 models use Default Thinking.
+- The `CHANGELOG.md` inside the package keeps its release-candidate heading,
+  because the release package is a byte copy of the accepted release
+  candidate.
+
 ## 0.9.1 (2026-11-14)
 
 **Summary.** Deep Research works with all eight models Kenlith has verified

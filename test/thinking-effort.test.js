@@ -35,6 +35,9 @@ const MODELS = [
 ];
 // The body keys of a 0.7.0 request without tools.
 const KEYS_070 = ['input', 'instructions', 'model', 'store', 'stream'];
+// 0.10.0 (DEC-PLANCHAT-045): a general-chat request to a verified model also offers hosted web search (Path A).
+const KEYS_0100 = [...KEYS_070, 'tool_choice', 'tools'].sort();
+const pathA = (body) => JSON.stringify(body.tools) === JSON.stringify([{ type: 'web_search' }]) && body.tool_choice === 'auto';
 
 let server;
 test.beforeEach(() => {
@@ -183,7 +186,8 @@ test('TE-1 Default omits reasoning: the body is the 0.7.0 body', async () => {
   assert.equal(requests.length, 2);
   for (const body of requests) {
     assert.equal(Object.hasOwn(body, 'reasoning'), false);
-    assert.deepEqual(Object.keys(body).sort(), KEYS_070);
+    assert.deepEqual(Object.keys(body).sort(), KEYS_0100);
+    assert.ok(pathA(body), 'Path A: web_search with tool_choice auto, nothing else');
   }
 });
 
@@ -196,7 +200,8 @@ for (const [n, effort] of [[2, 'low'], [3, 'medium'], [4, 'high'], [5, 'xhigh'],
     await chat.send('question', { effort });
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].reasoning, { effort });
-    assert.deepEqual(Object.keys(requests[0]).sort(), [...KEYS_070, 'reasoning'].sort());
+    assert.deepEqual(Object.keys(requests[0]).sort(), [...KEYS_0100, 'reasoning'].sort());
+    assert.ok(pathA(requests[0]), 'Path A');
     assert.equal(requests[0].store, false);
     assert.equal(requests[0].stream, true);
   });

@@ -23,7 +23,7 @@ const SHIPPED = ['package.json', 'README.md', 'CHANGELOG.md', 'SECURITY.md', 'LI
 
 test('Kenlith 1. the product name: display name, version, Activity Bar, views, settings section', () => {
   assert.equal(pkg.displayName, 'Kenlith');
-  assert.equal(pkg.version, '0.9.1'); // Kenlith 0.9.1 (the name and identity of 0.4.1 are kept)
+  assert.equal(pkg.version, '0.10.0'); // Kenlith 0.10.0 (the name and identity of 0.4.1 are kept)
   assert.ok(pkg.keywords.includes('kenlith'));
   assert.doesNotMatch(pkg.description, /Plan Chat|ScopeArc/);
   assert.equal(pkg.contributes.viewsContainers.activitybar[0].title, 'Kenlith');
@@ -143,7 +143,7 @@ test('Kenlith 10. packaging: a Kenlith file name around the unchanged extension 
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 'kenlith-pack-'));
   try {
     const file = execFileSync(process.execPath, [path.join(root, 'scripts', 'package-vsix.js'), '--out', out, '--label', 'test', '--artifact', 'kenlith-antigravity'], { encoding: 'utf8', env: { ...process.env, SOURCE_DATE_EPOCH: '1767225600' } }).trim();
-    assert.equal(path.basename(file), 'kenlith-antigravity-0.9.1-test.vsix');
+    assert.equal(path.basename(file), 'kenlith-antigravity-0.10.0-test.vsix');
     // Read the manifest entry from its local file header (method 8 = deflate).
     const zip = fs.readFileSync(file);
     const at = zip.indexOf(Buffer.from('extension.vsixmanifest')) - 30;
@@ -153,7 +153,7 @@ test('Kenlith 10. packaging: a Kenlith file name around the unchanged extension 
     const start = at + 30 + zip.readUInt16LE(at + 26) + zip.readUInt16LE(at + 28);
     const body = zip.subarray(start, start + size);
     const manifest = (method === 8 ? require('node:zlib').inflateRawSync(body) : body).toString('utf8');
-    assert.match(manifest, /<Identity [^>]*Id="plan-chat-antigravity"[^>]*Version="0\.9\.1"[^>]*Publisher="local-open-source"/);
+    assert.match(manifest, /<Identity [^>]*Id="plan-chat-antigravity"[^>]*Version="0\.10\.0"[^>]*Publisher="local-open-source"/);
     assert.match(manifest, /<DisplayName>Kenlith<\/DisplayName>/);
     assert.throws(() => execFileSync(process.execPath, [path.join(root, 'scripts', 'package-vsix.js'), '--out', out, '--artifact', 'Bad Name'], { stdio: 'pipe' }));
   } finally {

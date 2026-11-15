@@ -47,7 +47,7 @@ const researchPolicy = require('./research');
 const { ResearchModelError, researchRejection, supportsResearch } = require('./research');
 const { placeCitations } = require('./citations');
 const { USAGE_PAUSE_KEY, USAGE_SETTINGS_URL, UsagePausedError, WELCOME_ACTION, WELCOME_DETAIL, WELCOME_KEY, WELCOME_TITLE, isUsageLimitError, usesPlan } = require('./siwc');
-const { safeError } = require('./util');
+const { redactSecrets, safeError } = require('./util');
 const { ReplyBusyError, ReplyLeases } = require('./lease');
 const { DraftStore } = require('./drafts');
 const { getWebviewHtml, relativeTime } = require('./view');
@@ -72,6 +72,17 @@ class ProjectGateError extends Error {
     this.name = 'ProjectGateError';
     this.reason = reason;
   }
+}
+
+// 0.10.0: the history a web request may carry. `messages` comes from
+// store.contextMessages without a grant and without attachment replies; any
+// project-derived or attachment item left is dropped (fail closed), secrets
+// are redacted, and a message left empty is dropped.
+function webSafeProjection(messages) {
+  return (messages || [])
+    .filter((message) => message.projectDerived !== true && message.attachmentReply !== true)
+    .map((message) => ({ role: message.role, content: redactSecrets(String(message.content)) }))
+    .filter((message) => message.content.trim());
 }
 
 // The recovery action the view offers with a failure: Manage usage for the
@@ -566,7 +577,7 @@ class ChatEngine {
       const message = conversation.messages.find((candidate) => candidate.id === live.messageId);
       if (message) message.content = live.content;
       // 0.9.0: and the research progress and citations so far.
-      if (message && live.research) message.research = { mode: 'deep-research', ...live.research };
+      if (message && live.research) message.research = { mode: 'deep-research', ...live.research };  // 0.10.0: live.research carries its mode
     }
     const open = conversation.messages.filter((message) => message.inProgress);
     if (open.length && !this.#streams.has(conversation.id)) {
@@ -1368,10 +1379,16 @@ class ChatEngine {
         case 'selectEffort':
           await this.#selectEffort(surface, message.effort);
           break;
-        case 'send':
+        case 'send': {
           // 0.9.0: `research` only as the literal true (Deep Research on at Send).
-          await this.#send(surface, message.text, message.model, message.attachmentId, undefined, message.sendId, message.draftRev, message.effort, message.research === true);
+          // 0.10.0: `search` likewise (Search web on at Send). Both at once is refused.
+          if (message.research === true && message.search === true) {
+            throw new Error('Choose either Search web or Deep Research for one message, not both. Nothing was sent.');
+          }
+          const web = message.research === true ? 'deep-research' : message.search === true ? 'search' : false;
+          await this.#send(surface, message.text, message.model, message.attachmentId, undefined, message.sendId, message.draftRev, message.effort, web);
           break;
+        }
         case 'draft':
           await this.#saveDraft(surface, message.text, message.rev);
           break;
@@ -2350,12 +2367,16 @@ class ChatEngine {
     // RESEARCH_MODELS (0.9.1: eight; no silent switch and no replacement
     // offered: the user chooses in the Model selector), and never with
     // attached code. Refused here, before anything is stored; nothing is sent.
+    // 0.10.0: `research` is the web mode of this Send: 'deep-research',
+    // 'search' (Search web) or false.
     if (research) {
       if (!supportsResearch(selectedModel)) {
-        throw new ResearchModelError(this.models.find((model) => model.id === selectedModel)?.name || selectedModel);
+        throw new ResearchModelError(this.models.find((model) => model.id === selectedModel)?.name || selectedModel, research);
       }
       if (attachmentId !== undefined && attachmentId !== null) {
-        throw new Error('Deep Research sends only your question and this chat\'s text, never attached code. Remove the attached code or turn off Deep Research. Nothing was sent.');
+        throw new Error(research === 'search'
+          ? 'Search web sends only your question and this chat\'s text, never attached code. Remove the attached code or turn off Search web. Nothing was sent.'
+          : 'Deep Research sends only your question and this chat\'s text, never attached code. Remove the attached code or turn off Deep Research. Nothing was sent.');
       }
     }
     const attachment = research ? undefined : this.#attachmentForSend(attachmentId, conversationId);
@@ -2376,14 +2397,17 @@ class ChatEngine {
     // Replies to attached code are left out unless included (§5.1a); replies
     // made with project context only under the grant they were made with
     // (DEC-PLANCHAT-012); replies in progress or interrupted never (0.4.0).
-    const history = await this.store.contextMessages(conversationId, userMaxHistoryMessages() - 1, Infinity, { activeGrant: plan.activeGrant, withoutAttachmentReplies: research });
+    // 0.10.0: a web request (Search web, Deep Research) gets the web-safe
+    // history (no grant, no attachment replies) with secrets redacted.
+    const contextHistory = await this.store.contextMessages(conversationId, userMaxHistoryMessages() - 1, Infinity, { activeGrant: plan.activeGrant, withoutAttachmentReplies: Boolean(research) });
+    const history = research ? webSafeProjection(contextHistory) : contextHistory;
     const replays = history.some((message) => message.projectDerived);
     // The code goes into this one request only, after the typed text (§5.2).
     // Every request is built in one place (src/request-builder.js).
     const request = buildRequest({
       instructions,
       history,
-      text,
+      text: research ? redactSecrets(text) : text,
       attachment: attachment ? { text: attachment.snapshot.text, chars: attachment.snapshot.chars } : undefined,
       excerpts: plan.excerpts || [],
       noProjectFiles: Boolean(plan.noProjectFiles),
@@ -2393,8 +2417,15 @@ class ChatEngine {
       // 0.8.0: checked again there against the model (src/reasoning.js).
       model: selectedModel,
       effort,
-      research
+      // 0.10.0: the web mode, or automatic search for an ordinary message.
+      web: research || undefined,
+      autoSearch: !research
     });
+    // 0.10.0 Path B: the history an isolated search would carry, taken now,
+    // before this message is stored (no grant, no attachment replies, redacted).
+    const webHistory = request.signal
+      ? webSafeProjection(await this.store.contextMessages(conversationId, userMaxHistoryMessages() - 1, Infinity, { activeGrant: undefined, withoutAttachmentReplies: true }))
+      : undefined;
     const project = this.#projectRecord(plan, request, conversation, replays);
     if (project.tools) {
       project.tools.turn = await this.projectContext.createTurn();
@@ -2432,7 +2463,7 @@ class ChatEngine {
     if (controller.signal.aborted) {
       return undefined;
     }
-    return { selectedModel, conversationId, conversation, instructions, request, attachment, project };
+    return { selectedModel, conversationId, conversation, instructions, request, attachment, project, webHistory, effort };
   }
 
   // A code block's Copy button: the text arrives exactly as rendered from the
@@ -2523,7 +2554,7 @@ class ChatEngine {
       stream.accepted = true;
       return;
     }
-    const { selectedModel, instructions, request, attachment, project } = prepared;
+    const { selectedModel, instructions, request, attachment, project, webHistory, effort } = prepared;
 
     // Reply ownership across windows: taken after every refusal, before the
     // question is stored, held while the reply streams.
@@ -2535,7 +2566,7 @@ class ChatEngine {
       throw error;
     }
     try {
-      await this.#sendPrepared({ surface, stream, text, rawText, controller, selectedModel, conversationId, instructions, request, attachment, project, sendId, sendRev, lease });
+      await this.#sendPrepared({ surface, stream, text, rawText, controller, selectedModel, conversationId, instructions, request, attachment, project, sendId, sendRev, lease, webHistory, effort });
     } finally {
       await lease.release().catch(() => undefined);
       // 0.6.0: handed to #sendHeld, which finalizes it once this reply has
@@ -2547,7 +2578,7 @@ class ChatEngine {
     }
   }
 
-  async #sendPrepared({ surface, stream, text, rawText, controller, selectedModel, conversationId, request, attachment, project, sendId, sendRev, lease }) {
+  async #sendPrepared({ surface, stream, text, rawText, controller, selectedModel, conversationId, request, attachment, project, sendId, sendRev, lease, webHistory, effort }) {
     // The stored message holds the typed text; the attachment only as
     // metadata (§6). Its reply is marked and left out of later requests.
     const metadata = attachment && attachmentMetadata(attachment.snapshot, { credentialPatternConfirmed: attachment.credentialConfirmed });
@@ -2581,15 +2612,6 @@ class ChatEngine {
       ].filter(Boolean).join(' ')
     });
     const conversationList = await this.store.listConversations();
-    // A reply to attached code that also replays project answers follows the
-    // project permission; it is marked attachmentReply, not attachmentTurn,
-    // so that 0.2.0 (which offers Include for every attachmentTurn reply)
-    // cannot include it after a downgrade. Every reply is stored as in
-    // progress until it ends (0.4.0).
-    const replyDetails = attachment
-      ? (project.grant ? { ...project.replyDetails, attachmentReply: true } : { attachmentTurn: true, contextPolicy: 'excluded' })
-      : project.replyDetails;
-    const assistantMessage = await this.store.addMessage('assistant', '', conversationId, { ...replyDetails, inProgress: true, ...(request.research ? { research: true } : {}) });
     if (attachment && this.attachment === attachment) {
       // The approval is used up now, as the request is sent, even if it is
       // then stopped or fails: the code may already have reached the server.
@@ -2601,16 +2623,38 @@ class ChatEngine {
       ? this.store.updateAttachmentOutcome(conversationId, userMessage.id, metadata.id, value).catch(() => undefined)
       : undefined);
     this.#postChat(conversationId, { type: 'messageAdded', message: userMessage });
-    this.#postChat(conversationId, { type: 'messageAdded', message: assistantMessage });
     for (const target of this.#surfacesFor(conversationId)) {
       target.webview.postMessage({ type: 'conversationList', conversationList: target.follow ? conversationList : { ...conversationList, currentId: conversationId } });
     }
     this.#changed();
+    const trigger = request.research?.mode === 'search' ? 'manual' : undefined;
+    await this.#streamReply({ stream, text, controller, selectedModel, conversationId, request, attachment, project, lease, webHistory, effort, userMessage, outcome, trigger });
+  }
+
+  // One reply: created, streamed and stored. 0.10.0: a reply whose request
+  // carried the signal and got it ends here and, unless project data entered
+  // the turn, a new reply streams the isolated search (`trigger: 'auto'`).
+  async #streamReply({ stream, text, controller, selectedModel, conversationId, request, attachment, project, lease, webHistory, effort, userMessage, outcome, trigger }) {
+    // A reply to attached code that also replays project answers follows the
+    // project permission; it is marked attachmentReply, not attachmentTurn,
+    // so that 0.2.0 (which offers Include for every attachmentTurn reply)
+    // cannot include it after a downgrade. Every reply is stored as in
+    // progress until it ends (0.4.0).
+    const replyDetails = attachment
+      ? (project.grant ? { ...project.replyDetails, attachmentReply: true } : { attachmentTurn: true, contextPolicy: 'excluded' })
+      : project.replyDetails;
+    // 0.10.0: the web mode of the reply, known from the start for Search web,
+    // Deep Research and the isolated search; Path A sets it at the first search.
+    const webMode = request.research ? request.research.mode : undefined;
+    const startResearch = webMode === 'search' ? { research: { mode: 'search', trigger } } : webMode ? { research: true } : {};
+    const assistantMessage = await this.store.addMessage('assistant', '', conversationId, { ...replyDetails, inProgress: true, ...startResearch });
+    this.#postChat(conversationId, { type: 'messageAdded', message: assistantMessage });
 
     let content = '';
     let saved = '';
     stream.messageId = assistantMessage.id;
     stream.content = '';
+    stream.research = undefined;
     // The reply so far is saved now and then, so a crash or quit keeps it
     // (marked interrupted, never re-sent).
     const interval = CHECKPOINT_MS + Math.floor(this.store.fileSize / 1_000_000) * 1_000;
@@ -2624,36 +2668,52 @@ class ChatEngine {
     // 0.9.0 Deep Research: what the stream showed of the research, counted
     // from completed events only; the citations as received (untrusted) are
     // mapped to the text by src/citations.js whenever they are shown or saved.
-    const research = request.research ? { phase: 'preparing', searches: 0, pagesRead: 0, annotations: [] } : undefined;
+    // 0.10.0: also Search (Search web, isolated, or Path A once it searches).
+    const research = request.research || request.autoWeb
+      ? { mode: webMode || 'search', trigger: webMode === 'search' ? trigger : webMode ? undefined : 'auto', active: Boolean(webMode), phase: 'preparing', searches: 0, completedSearches: 0, pagesRead: 0, annotations: [] }
+      : undefined;
     const researchRecord = () => {
       const placed = placeCitations(content, research.annotations);
       return {
-        mode: 'deep-research',
+        mode: research.mode,
+        ...(research.mode === 'search' && research.trigger ? { trigger: research.trigger } : {}),
         searches: research.searches,
         pagesRead: research.pagesRead,
+        // 0.10.0: proof that a web search completed, also when no URL was cited.
+        ...(research.mode === 'search' ? { searchCompleted: research.completedSearches > 0 } : {}),
         citations: placed.citations,
         ...(placed.malformed ? { malformedCitations: placed.malformed } : {})
       };
     };
     const postResearch = () => {
+      if (!research.active) return;
       const record = researchRecord();
       // Kept for a tab that reloads while the run streams (#decorate).
-      stream.research = { phase: research.phase, searches: record.searches, pagesRead: record.pagesRead, citations: record.citations };
-      this.#postChat(conversationId, { type: 'researchProgress', messageId: assistantMessage.id, phase: research.phase, searches: record.searches, pagesRead: record.pagesRead, citations: record.citations });
+      stream.research = { mode: research.mode, trigger: research.trigger, phase: research.phase, searches: record.searches, pagesRead: record.pagesRead, citations: record.citations };
+      this.#postChat(conversationId, { type: 'researchProgress', messageId: assistantMessage.id, mode: research.mode, trigger: research.trigger, phase: research.phase, searches: record.searches, pagesRead: record.pagesRead, citations: record.citations });
     };
     // Long but bounded: no background mode on this route, so the request
     // streams in the foreground and is ended (not retried) after this.
-    const researchTimer = research ? setTimeout(() => { stream.timedOut = true; controller.abort(); }, researchPolicy.RESEARCH_TIMEOUT_MS) : undefined;
+    const researchTimer = webMode ? setTimeout(() => { stream.timedOut = true; controller.abort(); }, researchPolicy.timeoutFor(webMode)) : undefined;
     researchTimer?.unref?.();
     if (research) postResearch();
+    // 0.10.0 Path B: set when the model calls the signal.
+    let transition;
     try {
       if (project.grant) {
         stream.project = { keyId: project.grant.keyId, consentId: project.grant.consentId, revoked: false };
       }
       await this.openAIService.streamResponse({
         onResearch: research ? (event) => {
-          if (event.kind === 'search') research.phase = 'searching';
-          else if (event.kind === 'searched') {
+          if (event.kind === 'search') {
+            research.phase = 'searching';
+            // Path A: the model chose to search; from here the reply is a Search reply.
+            if (!research.active) {
+              research.active = true;
+              this.store.updateMessage(conversationId, assistantMessage.id, '', { research: { mode: 'search', trigger: 'auto' } }).catch(() => undefined);
+            }
+          } else if (event.kind === 'searched') {
+            if (event.status === 'completed') research.completedSearches += 1;
             if (event.status === 'completed' && event.action === 'search') research.searches += 1;
             if (event.status === 'completed' && (event.action === 'open_page' || event.action === 'find_in_page')) { research.pagesRead += 1; research.phase = 'reading'; }
           } else if (event.kind === 'writing') research.phase = 'synthesizing';
@@ -2681,7 +2741,14 @@ class ChatEngine {
         // 0.5.0: the model asked for project evidence. The host runs the
         // read-only tools within the turn's bounds; the gate checks the files
         // again before the continuation is sent (preflight above).
-        onToolCalls: project.tools ? async (calls, current) => {
+        // 0.10.0: if the response carries the signal, none of its calls runs.
+        onToolCalls: project.tools || request.signal ? async (calls, current) => {
+          if (request.signal && calls.some((call) => researchPolicy.isSignalCall(call))) {
+            // Project data in this turn: excerpts sent with it, or tool results returned.
+            transition = { mixed: Boolean(request.excerpts.length || project.tools?.reads) };
+            return undefined;
+          }
+          if (!project.tools) return undefined;
           const turn = project.tools.turn;
           if (!turn || controller.signal.aborted || project.withoutFiles) return undefined;
           if (project.askFirst && !project.grant) {
@@ -2757,9 +2824,30 @@ class ChatEngine {
       clearInterval(checkpoint);
       clearTimeout(researchTimer);
       if (project.tools) this.#postChat(conversationId, { type: 'contextNote', text: '' });
+      if (transition) {
+        // 0.10.0: no proposal of this turn goes to review.
+        if (project.draft) project.draft.discarded = true;
+        if (transition.mixed) {
+          // Project data entered this turn: nothing goes to the web; one sentence.
+          content = researchPolicy.MIXED_STOP_TEXT;
+          await this.store.finishReply(conversationId, assistantMessage.id, content, this.#toolDetails(request, project));
+          this.#postChat(conversationId, { type: 'messageUpdated', messageId: assistantMessage.id, content });
+          return;
+        }
+        // The routing reply holds no answer: it is removed, and the isolated
+        // search is a new reply (no project-derived mark is ever cleared).
+        await this.store.removeMessage(conversationId, assistantMessage.id);
+        this.#postChat(conversationId, { type: 'messageRemoved', messageId: assistantMessage.id });
+        if (controller.signal.aborted) return;
+        const searchRequest = buildRequest({ instructions: userInstructions(), history: webHistory || [], text: redactSecrets(text), model: selectedModel, effort, web: 'search' });
+        const none = { note: '', userDetails: {}, replyDetails: {} };
+        await this.#streamReply({ stream, text, controller, selectedModel, conversationId, request: searchRequest, attachment: undefined, project: none, lease, webHistory, effort, userMessage, outcome, trigger: 'auto' });
+        return;
+      }
       // 0.9.0: a research answer keeps its citations (mapped to the final
       // text) and its counts; nothing else of the research is stored.
-      const researchDone = research ? { research: researchRecord() } : {};
+      // 0.10.0: Path A without a search is an ordinary reply.
+      const researchDone = research && research.active ? { research: researchRecord() } : {};
       await this.store.finishReply(conversationId, assistantMessage.id, content, { ...this.#toolDetails(request, project), ...researchDone });
       this.#postChat(conversationId, {
         type: 'messageUpdated',
@@ -2772,10 +2860,14 @@ class ChatEngine {
     } catch (caught) {
       clearInterval(checkpoint);
       clearTimeout(researchTimer);
+      const active = Boolean(research && research.active);
       // 0.9.0: a research request ended by its time limit is a failure, not a
       // Stop: it is shown as failed with this reason and not retried.
-      const timedOut = Boolean(research && stream.timedOut && !stream.stopping && !stream.shutdown);
-      const error = timedOut ? new Error(`Deep Research did not finish within ${Math.max(1, Math.round(researchPolicy.RESEARCH_TIMEOUT_MS / 60000))} minutes, so Kenlith ended the request. Kenlith did not retry.`) : caught;
+      const timedOut = Boolean(webMode && stream.timedOut && !stream.stopping && !stream.shutdown);
+      const minutes = Math.max(1, Math.round(researchPolicy.timeoutFor(webMode) / 60000));
+      const error = timedOut ? new Error(webMode === 'search'
+        ? `The web search did not finish within ${minutes} minutes, so Kenlith ended the request. Kenlith did not retry.`
+        : `Deep Research did not finish within ${minutes} minutes, so Kenlith ended the request. Kenlith did not retry.`) : caught;
       // A gate refusal means nothing was sent, even if a revoke seen by this
       // window's watcher also stopped the request at the same moment.
       if (!timedOut && controller.signal.aborted && stream.shutdown && !(error instanceof ProjectGateError)) {
@@ -2784,7 +2876,7 @@ class ChatEngine {
         // editor is shutting down; the last checkpoint stays if this fails.
         // 0.9.0: a research run is kept even without text, so that after a
         // restart it shows as interrupted, with Retry (nothing is re-sent).
-        if (content || research) {
+        if (content || active) {
           await this.store.checkpointReply(conversationId, assistantMessage.id, content).catch(() => undefined);
           await this.store.markInterrupted(conversationId, [assistantMessage.id]).catch(() => undefined);
         } else {
@@ -2805,10 +2897,10 @@ class ChatEngine {
           await this.store.updateMessage(conversationId, userMessage.id, text, { contextUsed: [], projectNotSent: true }).catch(() => undefined);
         }
         await outcome('stopped');
-        if (content || research) {
+        if (content || active) {
           // 0.9.0: a stopped research run stays, marked stopped (with Retry),
           // even before any text arrived; it is never shown as complete.
-          await this.store.finishReply(conversationId, assistantMessage.id, content, { stopped: true, ...this.#toolDetails(request, project), ...(research ? { research: researchRecord() } : {}) });
+          await this.store.finishReply(conversationId, assistantMessage.id, content, { stopped: true, ...this.#toolDetails(request, project), ...(active ? { research: researchRecord() } : {}) });
         } else {
           await this.store.removeMessage(conversationId, assistantMessage.id);
           this.#postChat(conversationId, { type: 'messageRemoved', messageId: assistantMessage.id });
@@ -2822,14 +2914,17 @@ class ChatEngine {
         // 0.9.0: for Deep Research, a refusal of web search (or of the level:
         // the plan route does not say which) is explained as such. Nothing is
         // retried, and no answer without the web takes its place.
+        // 0.10.0: the same for Search, including a Path A request (D4: no
+        // resend without web search).
         const effortLabel = request.reasoning ? EFFORT_LABELS[request.reasoning.effort] : undefined;
-        const researchRefused = research && !usageAction(error) ? researchRejection(error, { effortLabel }) : undefined;
+        const webRequest = Boolean(request.research || request.autoWeb);
+        const researchRefused = webRequest && !usageAction(error) ? researchRejection(error, { effortLabel, mode: webMode || 'search' }) : undefined;
         const rejected = researchRefused || (!usageAction(error) && request.reasoning ? effortRejection(error, request.reasoning.effort, { tools: Boolean(request.tools) }) : undefined);
         const message = rejected ? `${rejected} ${safeError(error)}` : safeError(error);
         const display = content || `Request failed: ${message}`;
         // Project context that never passed the last check was not sent.
         const notSent = Boolean(project.grant && !project.released);
-        const researchFailed = research ? { research: researchRecord() } : {};
+        const researchFailed = active ? { research: researchRecord() } : {};
         await this.store.finishReply(conversationId, assistantMessage.id, display, { error: true, ...(notSent ? { contextUsed: [], projectNotSent: true } : this.#toolDetails(request, project)), ...researchFailed });
         this.#postChat(conversationId, {
           type: 'messageUpdated',

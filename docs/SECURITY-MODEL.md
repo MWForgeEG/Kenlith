@@ -1,7 +1,7 @@
 # Kenlith security model
 
 This page explains what Kenlith protects, where its trust boundaries are, and
-which risks remain. It describes Kenlith 0.9.0. For how to report a
+which risks remain. It describes Kenlith 0.10.0. For how to report a
 vulnerability, see [SECURITY.md](../SECURITY.md).
 
 ## What Kenlith protects
@@ -118,21 +118,33 @@ every request in a tool loop. It:
 - sends output about your computer, or output that points mostly outside the
   project, only after you choose **Share** on its own card.
 
-## Deep Research
+## Web search and Deep Research
 
-- Deep Research adds OpenAI's hosted `web_search` tool to one request, with
-  `tool_choice: "required"`. The search runs on OpenAI's side; Kenlith
-  fetches no web page itself.
+- Public web search and project capabilities are never offered in the same
+  request. Hosted web search is offered only in a request that holds no
+  project excerpts, project tools, attached code, command output or earlier
+  answers that used project data.
+- **Automatic search.** In a chat whose request is already free of project
+  data, the request offers OpenAI's hosted `web_search` tool and the model
+  decides whether to use it. In a request that can read the project, the
+  model gets no web tool; it can only signal that it needs the web. Kenlith
+  then sends a separate web-only request with the question and the chat's
+  text. If project data already entered that turn, Kenlith sends no web
+  request and says that it cannot combine the two.
+- **Search web and Deep Research** are such web-only requests, with
+  `tool_choice: "required"`, for one message. The search runs on OpenAI's
+  side; Kenlith fetches no web page itself.
 - It runs only with models in one built-in table (`src/research.js`). A model
   is added only after review, never because the account's model list
   includes it. With any other model the request is refused locally and
   nothing is sent; Kenlith never switches the model. When OpenAI refuses web
   search, the error shown may include OpenAI's own message, cut to 500
   characters and passed through the same secret redaction as other errors.
-- A research request carries the question and the chat's text. Kenlith
-  leaves out project excerpts, attached code and earlier answers that used
-  project data, and it offers no project tool, command or proposal in that
-  request. The sharing card is never shown for it.
+- A web request carries the question and the chat's text, with secret-like
+  text removed. Kenlith leaves out project excerpts, tool results, attached
+  code, command output and earlier answers that used project data, and it
+  offers no project tool, command or proposal in that request. The sharing
+  card is never shown for it.
 - Web pages, answers and citations are untrusted data. Citations are built
   from OpenAI's citation annotations, not from the answer text, and every
   link opens only after you confirm the full address.
@@ -173,7 +185,7 @@ operating-system sandbox**. These risks remain:
   answer. They cannot make Kenlith cross the boundaries above.
 - **A compromised machine.** If a program on your `PATH` or another
   extension in the same editor is malicious, it is outside Kenlith's control.
-- **Web content.** A research answer is built from public web pages chosen
+- **Web content.** A web answer is built from public web pages chosen
   by the model and OpenAI's search. It can be wrong or misleading. It cannot
   make Kenlith cross the boundaries above.
 - **Sent data.** Stopping sharing or signing out cannot recall data that was

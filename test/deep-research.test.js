@@ -43,6 +43,9 @@ const LIVE_MODELS_091 = [
   ['gpt-5.6-luna', 'GPT-5.6-Luna'], ['codex-auto-review', 'Codex Auto Review', 'hide'], [UNKNOWN, 'GPT-7-Nova']
 ].map(([slug, name, visibility = 'list']) => ({ slug, display_name: name, visibility }));
 const KEYS_080 = ['input', 'instructions', 'model', 'store', 'stream'];
+// 0.10.0 Path A: a general-chat request to a verified model also offers hosted web search, tool_choice auto.
+const KEYS_0100 = [...KEYS_080, 'tool_choice', 'tools'].sort();
+const isPathA = (body) => JSON.stringify(body.tools) === JSON.stringify([{ type: 'web_search' }]) && body.tool_choice === 'auto' && !Object.hasOwn(body, 'parallel_tool_calls');
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures-090', 'live-run2-stream.json'), 'utf8'));
 const LIVE_ANNOTATIONS = FIXTURE.events.filter((e) => e.type === 'response.output_text.annotation.added').map((e) => e.annotation);
 const DEFAULT_TIMEOUT = research.RESEARCH_TIMEOUT_MS;
@@ -186,15 +189,16 @@ test('DR-01 policy (0.9.1): exactly the eight verified models run Deep Research;
   assert.match(research.RESEARCH_INSTRUCTIONS, /no access to the user's computer, files or project/);
 });
 
-test('DR-02 Deep Research OFF: the request is exactly the 0.8.0 request (no tools, tool_choice or include)', async () => {
+test('DR-02 Deep Research OFF: the 0.8.0 request plus only Path A automatic search (0.10.0: web_search, tool_choice auto)', async () => {
   const requests = model(() => ({ text: 'plain' }));
   const w = await openWindow();
   const chat = await w.tab();
   await chat.send('What is a unit test?', { research: 'omit', model: ASTRA });
   await chat.send('And with High?', { research: false, model: ASTRA, effort: 'high' });
   assert.equal(requests.length, 2);
-  assert.deepEqual(Object.keys(requests[0]).sort(), KEYS_080);
-  assert.deepEqual(Object.keys(requests[1]).sort(), [...KEYS_080, 'reasoning'].sort());
+  assert.deepEqual(Object.keys(requests[0]).sort(), KEYS_0100);
+  assert.deepEqual(Object.keys(requests[1]).sort(), [...KEYS_0100, 'reasoning'].sort());
+  for (const body of requests) assert.ok(isPathA(body), 'Path A only');
   assert.deepEqual(requests[1].reasoning, { effort: 'high' });
   for (const body of requests) {
     assert.equal(body.store, false);
@@ -203,7 +207,8 @@ test('DR-02 Deep Research OFF: the request is exactly the 0.8.0 request (no tool
   }
   // A truthy value that is not the literal true does not turn research on.
   await chat.panel.send({ type: 'send', text: 'Third', model: ASTRA, research: 'yes' });
-  assert.deepEqual(Object.keys(requests[2]).sort(), KEYS_080);
+  assert.deepEqual(Object.keys(requests[2]).sort(), KEYS_0100);
+  assert.equal(requests[2].tool_choice, 'auto', 'not forced: research is off');
   const stored = await w.messages(chat.id);
   assert.ok(stored.every((message) => !message.research));
 });
@@ -257,7 +262,8 @@ test('DR-04 (0.9.1 RC2) a model not in the table: refused locally, nothing sent,
   // The page: a refused Deep Research Send turns the chip back on for that text,
   // and the banner carries no button (no "Use …").
   const page = getWebviewHtml({ cspSource: 'vscode-resource:', asWebviewUri: (u) => u }, {}, 'panel');
-  assert.ok(page.includes('if (state.researchAwaiting && message.text === state.researchText && !elements.prompt.value) setResearch(true);'), 'Deep Research comes back on with the refused text');
+  // 0.10.0: the mode the refused Send carried comes back (Deep Research here).
+  assert.ok(page.includes("if (state.researchAwaiting && message.text === state.researchText && !elements.prompt.value) setWebMode(state.awaitingMode || 'deep-research');"), 'Deep Research comes back on with the refused text');
   assert.doesNotMatch(page, /research-model-action|researchModel/);
   // The same with only unsupported models listed.
   server.models = [{ slug: UNKNOWN, display_name: 'GPT-7-Nova', visibility: 'list' }];
@@ -681,11 +687,11 @@ test('DR-24 the page: one + item, a compact chip that turns it off, a one-shot r
   const bar = /<div id="composerBar"[^>]*>([\s\S]*?)<div id="effortNote"/.exec(page)[1];
   assert.doesNotMatch(bar, /researchChip/);
   for (const id of ['plus', 'modelSlot', 'stop', 'send']) assert.match(bar, new RegExp(`id="${id}"`));
-  // Send carries research only as true, and only when on; then it turns off.
-  assert.match(page, /\.\.\.\(research \? \{ research: true \} : \{\}\)/);
-  // A refused Send turns it back on, only for that same text, into an empty box; the wait always ends.
-  assert.match(page, /if \(state\.researchAwaiting && message\.text === state\.researchText && !elements\.prompt\.value\) setResearch\(true\);\s*state\.researchAwaiting = false;/);
-  assert.match(page, /if \(research\) \{ state\.researchAwaiting = true; state\.researchText = text; setResearch\(false\); \}/);
+  // Send carries research (or, 0.10.0, search) only as true, only when on, never both; then it turns off.
+  assert.match(page, /\.\.\.\(research \? \{ research: true \} : search \? \{ search: true \} : \{\}\)/);
+  // A refused Send turns its mode back on, only for that same text, into an empty box; the wait always ends.
+  assert.match(page, /if \(state\.researchAwaiting && message\.text === state\.researchText && !elements\.prompt\.value\) setWebMode\(state\.awaitingMode \|\| 'deep-research'\);\s*state\.researchAwaiting = false;/);
+  assert.match(page, /if \(webMode\) \{ state\.researchAwaiting = true; state\.researchText = text; state\.awaitingMode = webMode; setWebMode\(undefined\); \}/);
   // The menu item reports its state to assistive technology.
   assert.match(page, /elements\.menuResearch\.setAttribute\('aria-checked', String\(state\.research\)\)/);
   // No percentage, no reasoning text in the research status.
@@ -837,7 +843,7 @@ test('DR-31 Thinking is unchanged: GPT-6 models keep their explicit levels with 
   assert.equal(Object.hasOwn(requests[1], 'reasoning'), false);
 });
 
-test('DR-32 ordinary chat is unchanged on the newly allowed models: exactly the 0.8.0 request, no web search', async () => {
+test('DR-32 ordinary chat on the verified models: the 0.8.0 request plus Path A automatic search; an unreviewed model gets exactly the 0.8.0 request', async () => {
   server.models = LIVE_MODELS_091.map((m) => ({ ...m }));
   const requests = model(() => ({ text: 'plain' }));
   const w = await openWindow();
@@ -848,7 +854,8 @@ test('DR-32 ordinary chat is unchanged on the newly allowed models: exactly the 
   }
   assert.equal(requests.length, 6);
   for (const body of requests) {
-    assert.deepEqual(Object.keys(body).sort(), KEYS_080, body.model);
+    if (body.model === UNKNOWN) assert.deepEqual(Object.keys(body).sort(), KEYS_080, body.model);
+    else { assert.deepEqual(Object.keys(body).sort(), KEYS_0100, body.model); assert.ok(isPathA(body), body.model); }
     assert.doesNotMatch(body.instructions, /Deep Research/);
   }
   assert.ok((await w.messages(chat.id)).every((message) => !message.research));

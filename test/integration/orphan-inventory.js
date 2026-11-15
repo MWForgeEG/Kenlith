@@ -58,6 +58,7 @@ const CREATORS = [
   ['evidence: kenlith 0.5.0 phase15/live/live-check.js', /^kenlith-live-[A-Za-z0-9]{6}$/],
   ['evidence: kenlith 0.9.0 feasibility/probe-web-search.js', /^kenlith-probe-[A-Za-z0-9]{6}$/],
   ['evidence: kenlith 0.9.1 compat-probe/probe-models.js', /^kenlith-091-probe-[A-Za-z0-9]{6}$/],
+  ['evidence: kenlith 0.10.0 feasibility/probe-routing.js', /^kenlith-0100-probe-[A-Za-z0-9]{6}$/],
   ['evidence: kenlith 0.5.0 phase13/interactive/d3-launch.js', /^kenlith-d3-[A-Za-z0-9]{6}$/],
   ['naming evidence: settings-labels.js, label-probe.js', /^scopearc-(settings-labels|label-probe|label-probe-ext)-[A-Za-z0-9]{6}$/],
   ['naming evidence: label-probe2.js', /^finalist-label-probe(-ext)?-[A-Za-z0-9]{6}$/],

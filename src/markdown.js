@@ -136,6 +136,55 @@
     return FENCE.test(line) || HEADING.test(line) || RULE.test(line) || QUOTE.test(line) || Boolean(listMarker(line));
   }
 
+  // ---------- tables (Kenlith 0.10.0, GFM style) ----------
+  // A header row with `|`, then a delimiter row (`---`, `:--`, `--:`, `:-:`
+  // per cell, same number of cells). Rows follow until a blank line or another
+  // block. Cells are split on `|` that is not escaped (`\|` is a literal bar,
+  // also inside code spans); each cell is inline Markdown. Bounded: at most
+  // MAX_TABLE_COLUMNS columns and MAX_TABLE_ROWS body rows.
+  const MAX_TABLE_COLUMNS = 50;
+  const MAX_TABLE_ROWS = 500;
+  const DELIMITER_CELL = /^:?-+:?$/;
+
+  function splitRow(line) {
+    let text = line.trim();
+    if (text.startsWith('|')) text = text.slice(1);
+    if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1);
+    const cells = [];
+    let cell = '';
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      if (char === '\\' && text[index + 1] === '|') {
+        cell += '|';
+        index += 1;
+      } else if (char === '|') {
+        cells.push(cell.trim());
+        cell = '';
+      } else {
+        cell += char;
+      }
+    }
+    cells.push(cell.trim());
+    return cells;
+  }
+
+  function delimiterAligns(line) {
+    if (!/[|-]/.test(line) || !/-/.test(line)) return undefined;
+    const cells = splitRow(line);
+    if (!cells.length || !cells.every((cell) => DELIMITER_CELL.test(cell))) return undefined;
+    return cells.map((cell) => (cell.startsWith(':') && cell.endsWith(':') ? 'center' : cell.endsWith(':') ? 'end' : cell.startsWith(':') ? 'start' : undefined));
+  }
+
+  function tableStart(lines, index) {
+    const header = lines[index];
+    if (index + 1 >= lines.length || !header.includes('|') || indentOf(header) > 3) return undefined;
+    const aligns = delimiterAligns(lines[index + 1]);
+    if (!aligns) return undefined;
+    const head = splitRow(header);
+    if (head.length !== aligns.length || head.length > MAX_TABLE_COLUMNS) return undefined;
+    return { head, aligns };
+  }
+
   function parseBlocks(lines, depth) {
     const blocks = [];
     let index = 0;
@@ -232,9 +281,24 @@
         continue;
       }
 
+      // 0.10.0: a table.
+      const table = tableStart(lines, index);
+      if (table) {
+        const columns = table.head.length;
+        const fit = (cells) => Array.from({ length: columns }, (_, column) => parseInline(cells[column] || '', depth));
+        const rows = [];
+        index += 2;
+        while (index < lines.length && !isBlank(lines[index]) && !startsBlock(lines[index]) && rows.length < MAX_TABLE_ROWS) {
+          rows.push(fit(splitRow(lines[index])));
+          index += 1;
+        }
+        blocks.push({ type: 'table', aligns: table.aligns, head: fit(table.head), rows });
+        continue;
+      }
+
       const paragraph = [line.trim()];
       index += 1;
-      while (index < lines.length && !isBlank(lines[index]) && !startsBlock(lines[index])) {
+      while (index < lines.length && !isBlank(lines[index]) && !startsBlock(lines[index]) && !tableStart(lines, index)) {
         paragraph.push(lines[index].trim());
         index += 1;
       }
@@ -667,6 +731,34 @@
         case 'code':
           renderCode(doc, parent, block.text, block.lang);
           break;
+        // 0.10.0: a wide table scrolls inside its own box, never the page.
+        case 'table': {
+          const wrap = element(doc, 'div', { class: 'table-wrap' });
+          const table = element(doc, 'table');
+          const cellOf = (tag, nodes, column) => {
+            const align = block.aligns[column];
+            const cell = element(doc, tag, { dir: 'auto', class: align ? `align-${align}` : undefined });
+            renderInline(doc, cell, nodes);
+            return cell;
+          };
+          const head = element(doc, 'thead');
+          const headRow = element(doc, 'tr');
+          block.head.forEach((nodes, column) => headRow.append(cellOf('th', nodes, column)));
+          head.append(headRow);
+          table.append(head);
+          if (block.rows.length) {
+            const body = element(doc, 'tbody');
+            for (const row of block.rows) {
+              const tr = element(doc, 'tr');
+              row.forEach((nodes, column) => tr.append(cellOf('td', nodes, column)));
+              body.append(tr);
+            }
+            table.append(body);
+          }
+          wrap.append(table);
+          parent.append(wrap);
+          break;
+        }
         default:
           break;
       }

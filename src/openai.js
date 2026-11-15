@@ -115,7 +115,9 @@ class OpenAIService {
         }
         throw error;
       }
-      if (!result.calls.length || !current.tools || typeof onToolCalls !== 'function') {
+      // 0.10.0: a request with only the signal also hands its calls to the
+      // engine (which ends the turn on the signal; nothing is answered).
+      if (!result.calls.length || !(current.tools || current.signal) || typeof onToolCalls !== 'function') {
         return accumulated;
       }
       const next = await onToolCalls(result.calls, current);
@@ -134,8 +136,13 @@ class OpenAIService {
     }
     // 0.9.0: Deep Research only for the model it was checked for, and never
     // together with project tools or excerpts.
-    if (request.research && (request.research.model !== model || request.tools || request.excerpts.length || request.requiresGate)) {
+    if (request.research && (request.research.model !== model || request.tools || request.signal || request.autoWeb || request.excerpts.length || request.requiresGate)) {
       throw new Error('This Deep Research request was not built for this model or carries project context. Nothing was sent.');
+    }
+    // 0.10.0 Path A: hosted search only in a request with no project content,
+    // for the model it was checked for, and never together with the signal.
+    if (request.autoWeb && (request.autoWeb.model !== model || request.tools || request.signal || request.excerpts.length || request.requiresGate)) {
+      throw new Error('This request was not built for web search with this model, or carries project context. Nothing was sent.');
     }
     if (request.requiresGate && !preflight) {
       throw new Error('Project context needs its last permission check before sending. Nothing was sent.');
@@ -163,14 +170,26 @@ class OpenAIService {
     if (request.reasoning) {
       payload.reasoning = { effort: request.reasoning.effort };
     }
+    // 0.10.0 Path B: the internal signal goes with the project tools (or
+    // alone), in the namespace form accepted on the plan route.
+    const signalTool = request.signal ? JSON.parse(JSON.stringify(request.signal)) : undefined;
     if (request.tools) {
       payload.tools = request.tools.map((tool) => ({ ...tool }));
+      if (signalTool) payload.tools.push(signalTool);
+      payload.tool_choice = request.toolChoice || 'auto';
+      payload.parallel_tool_calls = true;
+    } else if (signalTool) {
+      payload.tools = [signalTool];
       payload.tool_choice = request.toolChoice || 'auto';
       payload.parallel_tool_calls = true;
     } else if (request.research) {
       // 0.9.0: exactly the two fields of the live-verified research request.
       payload.tools = request.research.tools.map((tool) => ({ ...tool }));
       payload.tool_choice = request.research.toolChoice;
+    } else if (request.autoWeb) {
+      // 0.10.0 Path A: the model decides whether to search.
+      payload.tools = request.autoWeb.tools.map((tool) => ({ ...tool }));
+      payload.tool_choice = request.autoWeb.toolChoice;
     }
     // 0.7.0 RC3 (DEC-PLANCHAT-036): every command result in the complete
     // input passes the outbound boundary once more, just before it leaves
@@ -198,11 +217,13 @@ class OpenAIService {
 
     let completed = false;
     let searched = 0;
-    const research = request.research ? (event) => { try { onResearch?.(event); } catch { /* display only */ } } : undefined;
+    // 0.10.0: Path A reports search events too; whether it searched is the model's choice.
+    const research = request.research || request.autoWeb ? (event) => { try { onResearch?.(event); } catch { /* display only */ } } : undefined;
     const calls = new Map();
     const noteCall = (item) => {
       if (item?.type !== 'function_call' || typeof item.call_id !== 'string' || !item.call_id) return;
-      if (!calls.has(item.call_id)) calls.set(item.call_id, { callId: item.call_id, name: String(item.name || ''), arguments: typeof item.arguments === 'string' ? item.arguments : '' });
+      // 0.10.0: the namespace is kept, so the signal is recognised only with it.
+      if (!calls.has(item.call_id)) calls.set(item.call_id, { callId: item.call_id, name: String(item.name || ''), ...(typeof item.namespace === 'string' ? { namespace: item.namespace } : {}), arguments: typeof item.arguments === 'string' ? item.arguments : '' });
     };
 
     for await (const envelope of parseSse(response.body)) {
@@ -228,8 +249,11 @@ class OpenAIService {
         }
         noteCall(event.item);
       } else if (type === 'response.completed') {
-        if (research && !searched) {
-          throw new RequestError('Deep Research ended without a completed web search, so this is not shown as a research answer. Kenlith did not retry.', { code: 'research-no-search' });
+        // An isolated web request must have searched; Path A need not.
+        if (request.research && !searched) {
+          throw new RequestError(request.research.mode === 'search'
+            ? 'The web search ended without a completed search, so this is not shown as a search answer. Kenlith did not retry.'
+            : 'Deep Research ended without a completed web search, so this is not shown as a research answer. Kenlith did not retry.', { code: 'research-no-search' });
         }
         completed = true;
         for (const item of Array.isArray(event?.response?.output) ? event.response.output : []) noteCall(item);
@@ -252,7 +276,7 @@ class OpenAIService {
       throw new Error('The stream ended before response.completed.');
     }
 
-    return { calls: [...calls.values()] };
+    return { calls: [...calls.values()], searched };
   }
 }
 

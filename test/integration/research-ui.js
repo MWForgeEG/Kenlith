@@ -197,12 +197,16 @@ async function main() {
   await input.press('ArrowDown');
   await sleep(400);
   const menu = await inChat(a, "({ open: !d.getElementById('plusMenu').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id, role: d.activeElement && d.activeElement.getAttribute('role'), checked: d.activeElement && d.activeElement.getAttribute('aria-checked'), items: [...d.querySelectorAll('#plusMenu .menu-label')].map((e) => e.textContent.replace('✓', '').trim()) })");
-  check('keyboard: Tab to +, ArrowDown opens the menu on "Deep Research" (menuitemcheckbox, not checked), first of four items',
-    onPlus === 'plus' && menu.open && menu.focused === 'menuResearch' && menu.role === 'menuitemcheckbox' && menu.checked === 'false' && JSON.stringify(menu.items) === JSON.stringify(['Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']), { onPlus, menu });
+  // 0.10.0: Search web is the first item, Deep Research the second.
+  check('keyboard: Tab to +, ArrowDown opens the menu on "Search web" (menuitemcheckbox, not checked), first of five items, Deep Research second',
+    onPlus === 'plus' && menu.open && menu.focused === 'menuSearch' && menu.role === 'menuitemcheckbox' && menu.checked === 'false' && JSON.stringify(menu.items) === JSON.stringify(['Search web', 'Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']), { onPlus, menu });
   await input.press('Escape');
   await sleep(300);
   const afterEscape = await inChat(a, "({ open: !d.getElementById('plusMenu').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id, chip: !d.getElementById('researchRow').classList.contains('hidden') })");
   check('Escape closes the menu, returns focus to +, and turns nothing on', !afterEscape.open && afterEscape.focused === 'plus' && !afterEscape.chip, afterEscape);
+  await input.press('ArrowDown');
+  await sleep(300);
+  // 0.10.0: one more ArrowDown, from Search web to Deep Research.
   await input.press('ArrowDown');
   await sleep(300);
   await input.press('Enter');
@@ -363,6 +367,102 @@ async function main() {
   const ordinary = (await state()).requests.at(-1);
   check('with Deep Research off, the next request carries no research (the 0.8.0 request)', ordinary.question.includes('ordinary follow-up') && ordinary.research === false && ordinary.researchTools === null, ordinary);
   r.web.close();
+
+  // ---------- 0.10.0: Search web, activity indicator, tables, widths, composer colour ----------
+  await setWidth(1600);
+  const s = await view('Release notes');
+  // A Send is taken only when the chat is idle (the previous reply has ended).
+  const idle = () => waitFor(async () => inChat(s, "d.getElementById('replyStatus').classList.contains('hidden') && !d.getElementById('send').disabled"), 30000, 200).catch(() => undefined);
+  // The ordinary follow-up above may still be replying (one reply per window): stop it.
+  if (await inChat(s, "!d.getElementById('stop').classList.contains('hidden')")) { await clickIn(page, input, s, '#stop'); await sleep(1500); }
+  await idle();
+  await choose(s, 'models', 'gpt-6.1-sol');
+  await sleep(500);
+  const WEBSTATE = "({ chip: !d.getElementById('researchRow').classList.contains('hidden'), label: d.getElementById('researchChipLabel').textContent, search: d.getElementById('menuSearch').getAttribute('aria-checked'), research: d.getElementById('menuResearch').getAttribute('aria-checked'), webOn: d.getElementById('composerBox').classList.contains('web-on'), placeholder: d.getElementById('prompt').placeholder })";
+  if ((await inChat(s, WEBSTATE)).chip) { await clickIn(page, input, s, '#researchChip'); await sleep(300); }
+  await clickIn(page, input, s, '#plus'); await sleep(300); await clickIn(page, input, s, '#menuSearch'); await sleep(400);
+  const searchOn = await inChat(s, WEBSTATE);
+  await clickIn(page, input, s, '#plus'); await sleep(300); await clickIn(page, input, s, '#menuResearch'); await sleep(400);
+  const researchOn = await inChat(s, WEBSTATE);
+  await clickIn(page, input, s, '#researchChip'); await sleep(400);
+  const webOff = await inChat(s, WEBSTATE);
+  check('Search web and Deep Research exclude each other: one chip, its label follows the choice, the box is marked while one is on, the chip turns either off',
+    searchOn.chip && searchOn.label === 'Search web' && searchOn.search === 'true' && searchOn.research === 'false' && searchOn.webOn && researchOn.chip && researchOn.label === 'Deep Research' && researchOn.search === 'false' && researchOn.research === 'true' && !webOff.chip && webOff.search === 'false' && webOff.research === 'false' && !webOff.webOn,
+    { searchOn, researchOn, webOff });
+  // Search web: one Send, the isolated web request (tool_choice required), a Search answer.
+  await clickIn(page, input, s, '#plus'); await sleep(300); await clickIn(page, input, s, '#menuSearch'); await sleep(400);
+  await idle();
+  const before0100 = (await state()).requests.length;
+  await focusPrompt(page, input, s);
+  await input.type('Search the Node.js release schedule');
+  await input.press('Enter');
+  await waitFor(async () => { const a = await inChat(s, ANSWER).catch(() => null); return a && a.meta; }, 60000, 300).catch(() => undefined);
+  await sleep(800);
+  const searched = await inChat(s, ANSWER);
+  const searchReq = (await state()).requests.at(-1);
+  const afterSearch = await inChat(s, WEBSTATE);
+  check('Search web sends one isolated web request (web_search, tool_choice required, mode search) and turns off after Send; the reply ends "Searched the web · N sources" with Sources',
+    (await state()).requests.length === before0100 + 1 && searchReq.researchMode === 'search' && searchReq.researchToolChoice === 'required' && JSON.stringify(searchReq.researchTools) === '[{"type":"web_search"}]' && !afterSearch.chip && /^Searched the web · \d+ sources?$/.test(searched.meta || '') && searched.sourceItems.length > 0,
+    { req: searchReq, meta: searched.meta, sources: searched.sourceItems.length, after: afterSearch });
+  // Working…: the two rings before the first text, gone once text arrives.
+  await idle();
+  await focusPrompt(page, input, s);
+  await input.type('SLOWSTART please answer');
+  await input.press('Enter');
+  await sleep(1200);
+  const RINGS = "(() => { const a = [...d.querySelectorAll('#messages article.assistant')].at(-1); const act = a && a.querySelector('.kl-activity'); const ring = act && act.querySelector('.kl-ring-outer'); return { text: act ? act.textContent : null, role: act && act.getAttribute('role'), rings: act ? act.querySelectorAll('circle').length : 0, animation: ring ? w.getComputedStyle(ring).animationName : null, height: act ? Math.round(act.getBoundingClientRect().height) : 0, answer: a ? a.querySelector('.bubble').textContent : '' }; })()";
+  const working = await inChat(s, RINGS);
+  await waitFor(async () => (await inChat(s, RINGS)).answer.includes('Started after a pause'), 15000, 200).catch(() => undefined);
+  await sleep(600);
+  const worked = await inChat(s, RINGS);
+  const slowReq = (await state()).requests.at(-1);
+  check('ordinary reply: "Working…" with two Signal Rings (the outer one pulses, role status) before the first text; gone once the answer arrives; the request offered exactly one search path (Path A web search, or the Path B signal in this project chat)',
+    working.text === 'Working…' && working.role === 'status' && working.rings === 2 && working.animation === 'kl-pulse' && working.height <= 20 && worked.text === null && slowReq.research === false && (slowReq.autoWeb !== slowReq.signal),
+    { working, after: worked.text, autoWeb: slowReq.autoWeb, signal: slowReq.signal });
+  // Reduced motion: the same rings, not moving.
+  await s.web.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] }).catch(() => undefined);
+  await idle();
+  await focusPrompt(page, input, s);
+  await input.type('SLOWSTART once more');
+  await input.press('Enter');
+  await sleep(1200);
+  const still = await inChat(s, RINGS);
+  await waitFor(async () => (await inChat(s, RINGS)).answer.includes('Started after a pause'), 15000, 200).catch(() => undefined);
+  await s.web.send('Emulation.setEmulatedMedia', { features: [] }).catch(() => undefined);
+  check('reduced motion: the same "Working…" with both rings drawn, no animation', still.text === 'Working…' && still.rings === 2 && (still.animation === 'none' || still.animation === null), still);
+  // A Markdown table: rendered, wide content scrolls inside its own box, the page does not.
+  // The chat's editor group is maximized (no side bar, no split) for the width checks.
+  await cmd({ command: 'workbench.action.toggleMaximizeEditorGroup', wait: 1200 });
+  await idle();
+  await focusPrompt(page, input, s);
+  await input.type('TABLEDEMO compare them');
+  await input.press('Enter');
+  await waitFor(async () => (await inChat(s, "!!d.querySelector('#messages article.assistant:last-of-type .table-wrap table')")), 15000, 300).catch(() => undefined);
+  await sleep(800);
+  const TABLE = "(() => { const a = [...d.querySelectorAll('#messages article.assistant')].at(-1); const wrap = a && a.querySelector('.table-wrap'); const t = wrap && wrap.querySelector('table'); const p = a && [...a.querySelectorAll('.bubble > p')].at(-1); const m = d.getElementById('messages'); const ms = w.getComputedStyle(m); const box = d.getElementById('composerBox').getBoundingClientRect(); const bubble = a && a.querySelector('.bubble').getBoundingClientRect(); return { th: t ? t.querySelectorAll('th').length : 0, rows: t ? t.querySelectorAll('tbody tr').length : 0, align: t ? [...t.querySelectorAll('thead th')].slice(0, 3).map((c) => w.getComputedStyle(c).textAlign) : [], cellDir: t ? w.getComputedStyle(t.querySelector('tbody tr:last-child td')).direction : null, wrapScroll: wrap ? wrap.scrollWidth > wrap.clientWidth : false, wrapOverflow: wrap ? w.getComputedStyle(wrap).overflowX : null, pageOverflow: d.documentElement.scrollWidth - d.documentElement.clientWidth, vw: d.documentElement.clientWidth, workspace: Math.round(m.clientWidth - parseFloat(ms.paddingLeft) - parseFloat(ms.paddingRight)), prose: p ? Math.round(p.getBoundingClientRect().width) : 0, bubble: bubble ? Math.round(bubble.width) : 0, composer: Math.round(box.width) }; })()";
+  const wide = await inChat(s, TABLE);
+  check('table: header and rows, alignment start/end/center, a right-to-left cell, wide content scrolls inside its box, no page overflow',
+    wide.th === 14 && wide.rows === 2 && JSON.stringify(wide.align) === JSON.stringify(['start', 'end', 'center']) && wide.cellDir === 'rtl' && wide.wrapScroll && wide.wrapOverflow === 'auto' && wide.pageOverflow <= 0, wide);
+  check(`wide editor (${wide.vw}px): workspace up to 76rem (≤ 1216 px, wider than 0.9.1's 896 px), prose ≤ 48rem, composer as wide as the workspace`,
+    wide.workspace > 896 && wide.workspace <= 1216 && wide.prose > 0 && wide.prose <= 768 + 1 && Math.abs(wide.composer - wide.workspace) <= 20, wide);
+  await screenshot(page, 'dark-1600-table-0100.png');
+  await setWidth(900);
+  const narrow = await inChat(s, TABLE);
+  check(`narrow editor (${narrow.vw}px): no page overflow, the table scrolls inside its box, the workspace stays within the editor`, narrow.workspace <= narrow.vw && narrow.wrapScroll && narrow.pageOverflow <= 0, narrow);
+  await setWidth(1600);
+  await cmd({ command: 'workbench.action.toggleMaximizeEditorGroup', wait: 1200 });
+  // Composer colour: the edge at rest, ≥ 3:1 against the page, in four themes.
+  const EDGE = "(() => { const b = d.getElementById('composerBox'); const s = w.getComputedStyle(b); return { edge: s.borderTopColor, page: w.getComputedStyle(d.body).backgroundColor, kind: d.body.className }; })()";
+  const edges = {};
+  for (const [tag, theme] of [['dark', 'Default Dark Modern'], ['light', 'Default Light Modern'], ['hc-dark', 'Default High Contrast'], ['hc-light', 'Default High Contrast Light']]) {
+    await cmd({ theme, wait: 1500 });
+    await clickIn(page, input, s, '#messages');
+    const e = await inChat(s, EDGE);
+    edges[tag] = { ...e, ratio: ratio(over(parseColor(e.edge), parseColor(e.page)), parseColor(e.page)) };
+  }
+  await cmd({ theme: 'Default Dark Modern', wait: 1500 });
+  check('composer edge at rest ≥ 3:1 against the page in Dark, Light and both High Contrast themes (Signal Mint in Dark/Light, the theme border in High Contrast)', Object.values(edges).every((e) => e.ratio >= 3), edges);
+  s.web.close();
 
   const reloaded = read('reloaded-composer');
   if (reloaded) results.push({ name: 'note: the editor reloaded its window during the run (its own first-run onboarding); the suite carried on with the same chats', ok: true, detail: reloaded, note: true });
