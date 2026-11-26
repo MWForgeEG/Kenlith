@@ -197,18 +197,17 @@ async function main() {
   await input.press('ArrowDown');
   await sleep(400);
   const menu = await inChat(a, "({ open: !d.getElementById('plusMenu').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id, role: d.activeElement && d.activeElement.getAttribute('role'), checked: d.activeElement && d.activeElement.getAttribute('aria-checked'), items: [...d.querySelectorAll('#plusMenu .menu-label')].map((e) => e.textContent.replace('✓', '').trim()) })");
-  // 0.10.0: Search web is the first item, Deep Research the second.
-  check('keyboard: Tab to +, ArrowDown opens the menu on "Search web" (menuitemcheckbox, not checked), first of five items, Deep Research second',
-    onPlus === 'plus' && menu.open && menu.focused === 'menuSearch' && menu.role === 'menuitemcheckbox' && menu.checked === 'false' && JSON.stringify(menu.items) === JSON.stringify(['Search web', 'Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']), { onPlus, menu });
+  // 0.12.0 (DEC-PLANCHAT-051): Search web is removed; Deep Research is the first item.
+  check('keyboard: Tab to +, ArrowDown opens the menu on "Deep Research" (menuitemcheckbox, not checked), first of four items, no Search web',
+    onPlus === 'plus' && menu.open && menu.focused === 'menuResearch' && menu.role === 'menuitemcheckbox' && menu.checked === 'false' && JSON.stringify(menu.items) === JSON.stringify(['Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']), { onPlus, menu });
   await input.press('Escape');
   await sleep(300);
   const afterEscape = await inChat(a, "({ open: !d.getElementById('plusMenu').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id, chip: !d.getElementById('researchRow').classList.contains('hidden') })");
   check('Escape closes the menu, returns focus to +, and turns nothing on', !afterEscape.open && afterEscape.focused === 'plus' && !afterEscape.chip, afterEscape);
   await input.press('ArrowDown');
-  await sleep(300);
-  // 0.10.0: one more ArrowDown, from Search web to Deep Research.
-  await input.press('ArrowDown');
-  await sleep(300);
+  await sleep(600);
+  // 0.12.0: the menu opens on Deep Research (no Search web item before it);
+  // the pause keeps the 0.11.0 timing before Enter (two steps of 300 ms).
   await input.press('Enter');
   await sleep(500);
   const on = await inChat(a, MEASURE);
@@ -378,32 +377,51 @@ async function main() {
   await idle();
   await choose(s, 'models', 'gpt-6.1-sol');
   await sleep(500);
-  const WEBSTATE = "({ chip: !d.getElementById('researchRow').classList.contains('hidden'), label: d.getElementById('researchChipLabel').textContent, search: d.getElementById('menuSearch').getAttribute('aria-checked'), research: d.getElementById('menuResearch').getAttribute('aria-checked'), webOn: d.getElementById('composerBox').classList.contains('web-on'), placeholder: d.getElementById('prompt').placeholder })";
+  // 0.12.0 (DEC-PLANCHAT-051): no Search web item; Deep Research is the one mode.
+  const WEBSTATE = "({ chip: !d.getElementById('researchRow').classList.contains('hidden'), label: d.getElementById('researchChipLabel').textContent, searchItem: Boolean(d.getElementById('menuSearch')), research: d.getElementById('menuResearch').getAttribute('aria-checked'), webOn: d.getElementById('composerBox').classList.contains('web-on'), placeholder: d.getElementById('prompt').placeholder })";
   if ((await inChat(s, WEBSTATE)).chip) { await clickIn(page, input, s, '#researchChip'); await sleep(300); }
-  await clickIn(page, input, s, '#plus'); await sleep(300); await clickIn(page, input, s, '#menuSearch'); await sleep(400);
-  const searchOn = await inChat(s, WEBSTATE);
   await clickIn(page, input, s, '#plus'); await sleep(300); await clickIn(page, input, s, '#menuResearch'); await sleep(400);
   const researchOn = await inChat(s, WEBSTATE);
   await clickIn(page, input, s, '#researchChip'); await sleep(400);
   const webOff = await inChat(s, WEBSTATE);
-  check('Search web and Deep Research exclude each other: one chip, its label follows the choice, the box is marked while one is on, the chip turns either off',
-    searchOn.chip && searchOn.label === 'Search web' && searchOn.search === 'true' && searchOn.research === 'false' && searchOn.webOn && researchOn.chip && researchOn.label === 'Deep Research' && researchOn.search === 'false' && researchOn.research === 'true' && !webOff.chip && webOff.search === 'false' && webOff.research === 'false' && !webOff.webOn,
-    { searchOn, researchOn, webOff });
-  // Search web: one Send, the isolated web request (tool_choice required), a Search answer.
-  await clickIn(page, input, s, '#plus'); await sleep(300); await clickIn(page, input, s, '#menuSearch'); await sleep(400);
+  check('no Search web item; Deep Research shows its chip and marks the box, the chip turns it off',
+    !researchOn.searchItem && researchOn.chip && researchOn.label === 'Deep Research' && researchOn.research === 'true' && researchOn.webOn && !webOff.chip && webOff.research === 'false' && !webOff.webOn && webOff.placeholder === 'Message ChatGPT…',
+    { researchOn, webOff });
+  // Automatic search: an ordinary Send to a model offered search; the model
+  // searches (the harness replays the recorded stream for "AUTOSEARCH").
   await idle();
   const before0100 = (await state()).requests.length;
   await focusPrompt(page, input, s);
-  await input.type('Search the Node.js release schedule');
+  await input.type('AUTOSEARCH What is the current Node.js release schedule?');
   await input.press('Enter');
+  // This is a project window: if the sharing card asks, answer "Send without
+  // project files" (no project data, so the request may offer hosted search).
+  const answerCard = async () => {
+    await waitFor(async () => inChat(s, "!d.getElementById('consentCard').classList.contains('hidden')"), 4000, 200).catch(() => undefined);
+    if (await inChat(s, "!d.getElementById('consentCard').classList.contains('hidden')")) { await clickIn(page, input, s, '#consentWithout'); await sleep(500); return true; }
+    return false;
+  };
+  const cardAnswered = await answerCard();
   await waitFor(async () => { const a = await inChat(s, ANSWER).catch(() => null); return a && a.meta; }, 60000, 300).catch(() => undefined);
   await sleep(800);
   const searched = await inChat(s, ANSWER);
   const searchReq = (await state()).requests.at(-1);
   const afterSearch = await inChat(s, WEBSTATE);
-  check('Search web sends one isolated web request (web_search, tool_choice required, mode search) and turns off after Send; the reply ends "Searched the web · N sources" with Sources',
-    (await state()).requests.length === before0100 + 1 && searchReq.researchMode === 'search' && searchReq.researchToolChoice === 'required' && JSON.stringify(searchReq.researchTools) === '[{"type":"web_search"}]' && !afterSearch.chip && /^Searched the web · \d+ sources?$/.test(searched.meta || '') && searched.sourceItems.length > 0,
-    { req: searchReq, meta: searched.meta, sources: searched.sourceItems.length, after: afterSearch });
+  check('automatic search: one ordinary request offering web search (no explicit mode), progress, and the reply ends "Searched the web · N sources" with Sources',
+    (await state()).requests.length === before0100 + 1 && searchReq.research === false && searchReq.autoWeb === true && searchReq.signal === false && !afterSearch.chip && /^Searched the web · \d+ sources?$/.test(searched.meta || '') && searched.sourceItems.length > 0,
+    { req: searchReq, meta: searched.meta, sources: searched.sourceItems.length, after: afterSearch, cardAnswered });
+  // An explicit no-internet message: no web search offered at all.
+  await idle();
+  await focusPrompt(page, input, s);
+  await input.type("Don't use the internet: what is a closure?");
+  await input.press('Enter');
+  await answerCard();
+  await waitFor(async () => (await state()).requests.length >= before0100 + 2, 30000, 200).catch(() => undefined);
+  const noWebReq = (await state()).requests.at(-1);
+  check('explicit no-internet message: the request offers neither web search nor the signal', noWebReq && noWebReq.research === false && noWebReq.autoWeb === false && noWebReq.signal === false, { req: noWebReq });
+  // The harness's default reply to that message is long; stop it so the next
+  // Send is taken (one reply per window), as for the follow-up above.
+  if (await inChat(s, "!d.getElementById('stop').classList.contains('hidden')")) { await clickIn(page, input, s, '#stop'); await sleep(1500); }
   // Working…: the two rings before the first text, gone once text arrives.
   await idle();
   await focusPrompt(page, input, s);

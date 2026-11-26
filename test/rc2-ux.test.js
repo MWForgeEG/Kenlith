@@ -23,14 +23,16 @@ test('RC2-1 (0.9.0) the + menu holds only real Kenlith actions, each wired to an
   const menu = /<div id="plusMenu"[^>]*role="menu"[^>]*>([\s\S]*?)<\/div>\s*<button id="attach"/.exec(page);
   assert.ok(menu, 'the menu is in the page');
   const labels = [...menu[1].matchAll(/<span class="menu-label">([^<]+)(?:<span[^>]*>[^<]*<\/span>)?<\/span>/g)].map((m) => m[1]);
-  // 0.10.0: Search web first (DEC-PLANCHAT-045), then the 0.9.0 items.
-  assert.deepEqual(labels, ['Search web', 'Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']);
+  // 0.12.0 (DEC-PLANCHAT-051): Search web is removed (web search is
+  // automatic); the 0.9.0 items remain, in order. No Auto Search toggle.
+  assert.deepEqual(labels, ['Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']);
   assert.equal((menu[1].match(/role="menuitem"/g) || []).length, 3);
-  assert.equal((menu[1].match(/role="menuitemcheckbox"/g) || []).length, 2);
-  assert.match(menu[1], /<button id="menuSearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false">/);
+  assert.equal((menu[1].match(/role="menuitemcheckbox"/g) || []).length, 1);
+  assert.doesNotMatch(menu[1], /menuSearch|Search web|auto search/i);
   assert.match(menu[1], /<button id="menuResearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false">/);
-  // Only the Search web and Deep Research items mention the web.
-  assert.doesNotMatch(menu[1].replace(/<button id="menuResearch"[\s\S]*?<\/button>/, '').replace(/<button id="menuSearch"[\s\S]*?<\/button>/, ''), /search the web|web search/i);
+  assert.match(page, /aria-label="Actions: Deep Research, attach selection, project sharing, project settings"/);
+  // Only the Deep Research item mentions the web.
+  assert.doesNotMatch(menu[1].replace(/<button id="menuResearch"[\s\S]*?<\/button>/, ''), /search the web|web search/i);
   // Each item posts a message the extension handles.
   assert.match(page, /menuAttach\.addEventListener\('click', fromMenu\(\(\) => \{ state\.attachFromView = true; post\('attachSelection'\); \}\)\)/);
   assert.match(page, /menuSharing\.addEventListener\('click', fromMenu\(\(\) => post\('manageProjectSharing'\)\)\)/);

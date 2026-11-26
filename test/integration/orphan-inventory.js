@@ -20,7 +20,11 @@
 // all test runs and editors started by tests, run this again, and remove only
 // the folders reported as leftover, re-checking each one just before removal
 // (same creation time and contents; remove links as links first). Never remove
-// by prefix alone. plan-chat-sg-m1-1-symlinks is a reusable fixture: keep it.
+// by prefix alone. plan-chat-sg-m1-1-symlinks is a reusable fixture: keep it,
+// and its renamed backups (plan-chat-sg-m1-1-symlinks-backup-<date>-<time>).
+// Kenlith 0.12.0: the persistent SG6 set is outside TEMP
+// (%LOCALAPPDATA%\Kenlith\TestFixtures\SG6, DEC-PLANCHAT-052); until the
+// Owner approves their removal, the TEMP set and its backup stay.
 
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -64,15 +68,22 @@ const CREATORS = [
   ['naming evidence: label-probe2.js', /^finalist-label-probe(-ext)?-[A-Za-z0-9]{6}$/],
   // Unit tests that clean up in test.after (left only by a killed process),
   // and probe scripts kept as evidence of earlier releases.
+  ['unit: kenlith 0.12.0 sg6-fixtures-helper', /^kenlith-sg6h-[A-Za-z0-9]{6}$/],
+  // Kenlith 0.12.0 live tooling (registered in a corrective commit after the
+  // merge: the tooling was written after the RC1 unit run).
+  ['evidence: kenlith 0.12.0 feasibility/probe-f.js', /^kenlith-0120-stage-f-[A-Za-z0-9]{6}$/],
+  ['evidence: kenlith 0.12.0 live/live-check-0120.js', /^kenlith-live-0120-[A-Za-z0-9]{6}$/],
   ['unit: retrieval, workspace-safety', /^pc-(rt|rt-large|ws)-[A-Za-z0-9]{6}$/],
   ['evidence scripts: UX-040 spike and install, WP-04 probes', /^plan-chat-(spike|040|casefold|fsid|vulnerable)-[A-Za-z0-9]{6}$/]
 ];
 const KEEP = new Set(['plan-chat-sg-m1-1-symlinks']);
+// Renamed backups of that fixture (0.11.0: plan-chat-sg-m1-1-symlinks-backup-20261126-010550).
+const KEEP_PATTERN = /^plan-chat-sg-m1-1-symlinks-backup-\d{8}-\d{6}$/;
 // Top-level names this inventory looks at.
 const TEST_FOLDER = /^(plan-chat|scopearc-|kenlith-|finalist-label-probe-|pc-(rt|ws)-)/;
 
 if (require.main === module) main();
-module.exports = { CREATORS, KEEP, TEST_FOLDER };
+module.exports = { CREATORS, KEEP, KEEP_PATTERN, TEST_FOLDER };
 
 function main() {
 const args = process.argv.slice(2);
@@ -142,7 +153,7 @@ const rows = fs.readdirSync(temp).filter((name) => TEST_FOLDER.test(name) && fs.
   const creator = CREATORS.find(([, pattern]) => pattern.test(name))?.[0];
   const created = fs.lstatSync(dir).birthtimeMs;
   const reasons = [];
-  if (KEEP.has(name)) reasons.push('reusable fixture: keep');
+  if (KEEP.has(name) || KEEP_PATTERN.test(name)) reasons.push('reusable fixture: keep');
   else if (!creator) reasons.push('no known creator');
   if (info.isLink) reasons.push('the folder itself is a link');
   if (now - Math.max(created, info.newest) < minAgeHours * 3600000) reasons.push(`changed within ${minAgeHours} h`);

@@ -165,6 +165,18 @@ class OpenAIService {
     if (request.autoWeb && (request.autoWeb.model !== model || request.tools || request.signal || request.excerpts.length || request.requiresGate)) {
       throw new Error('This request was not built for web search with this model, or carries project context. Nothing was sent.');
     }
+    // 0.12.0 (DEC-PLANCHAT-050/051): web search only where the record offers
+    // it (Deep Research where it allows it), and never in a request built from
+    // a message that asks not to use the internet, nor in any continuation.
+    if ((request.autoWeb || request.signal || request.research?.mode === 'search') && request.capability?.search?.offered !== true) {
+      throw new Error('Web search is not available for this model in this session. Nothing was sent.');
+    }
+    if (request.research?.mode === 'deep-research' && request.capability?.research?.allowed !== true) {
+      throw new Error('Deep Research is not available for this model. Nothing was sent.');
+    }
+    if (request.noWeb && (request.autoWeb || request.signal || request.research)) {
+      throw new Error('This message asks not to use the internet, but the request can reach the web. Nothing was sent.');
+    }
     if (request.requiresGate && !preflight) {
       throw new Error('Project context needs its last permission check before sending. Nothing was sent.');
     }

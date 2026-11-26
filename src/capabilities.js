@@ -3,9 +3,9 @@
 // Kenlith 0.11.0 (DEC-PLANCHAT-048): the one model capability resolver.
 // Design and decision table: docs/kenlith-0.11.0/CAPABILITY-RESOLVER.md.
 //
-// Scope: Thinking levels only. Search web, automatic search and Deep Research
-// are decided by src/research.js (RESEARCH_MODELS, DEC-PLANCHAT-044) and are
-// not touched here.
+// Scope (0.12.0, DEC-PLANCHAT-050): three capabilities, resolved
+// independently for each model: Thinking levels, automatic web search and
+// Deep Research. Design and decision table: docs/kenlith-0.12.0/SEARCH-CAPABILITY.md.
 //
 // Precedence, the same order everywhere:
 //   1. model availability in the current session's catalog;
@@ -13,6 +13,12 @@
 //   3. approved compatibility rules, constrained by valid advertised metadata;
 //   4. eligible advertised capabilities (no rule);
 //   5. safe fallback: Default only.
+// Web search and Deep Research follow the same order (0.12.0): availability;
+// explicit restrictions; live-verified compatibility; for web search only,
+// eligible advertised metadata (`web_search_tool_type`); otherwise none.
+// `supports_search_tool` is never read: it describes deferred tool loading
+// (`tool_search`), which the ChatGPT-plan route does not support, and it is
+// true for every model, hidden ones included (DEC-PLANCHAT-050).
 //
 // "Advertised" means listed by the signed-in account's /v1/models response.
 // Those fields are not in OpenAI's Sign in with ChatGPT documentation, so they
@@ -47,6 +53,48 @@ const RESTRICTED = Object.freeze({
 
 const TIERS = Object.freeze(['unavailable', 'restricted', 'approved', 'advertised', 'fallback']);
 
+// 0.12.0 (DEC-PLANCHAT-050): web search and Deep Research.
+//
+// Live-verified compatibility on the ChatGPT-plan route, per exact slug. An
+// entry needs the official model page listing Responses API `web_search` and
+// a passed live check of that request shape on the plan route; a model is
+// never added because the account's model list advertises it. These eight
+// are the DEC-PLANCHAT-044 table (live checks of 2026-11-14, `web_search` with
+// `tool_choice: "required"`); automatic search with `"auto"` has been offered
+// to them since 0.10.0 (DEC-PLANCHAT-045/046).
+const VERIFIED_WEB = 'official model page lists Responses API web_search; live ChatGPT-plan route check passed 2026-11-14 (DEC-PLANCHAT-044)';
+const VERIFIED_WEB_0120 = 'official model page lists Responses API web_search; live ChatGPT-plan route stage F passed 2026-11-26 (DEC-PLANCHAT-054)';
+const SEARCH_VERIFIED = Object.freeze({
+  'gpt-6-astra': VERIFIED_WEB,
+  'gpt-6.1-sol': VERIFIED_WEB,
+  'gpt-6.1-terra': VERIFIED_WEB,
+  'gpt-6-sol': VERIFIED_WEB,
+  'gpt-6-luna': VERIFIED_WEB,
+  'gpt-5.6-sol': VERIFIED_WEB,
+  'gpt-5.6-terra': VERIFIED_WEB,
+  'gpt-5.6-luna': VERIFIED_WEB,
+  // 0.12.0 (DEC-PLANCHAT-054): live stage F of 2026-11-26 on the ChatGPT-plan
+  // route: automatic search (`auto`) and the Deep Research shape (`required`)
+  // accepted, searches executed and URL citations returned, at High and at
+  // Max; official model pages list Responses API web_search.
+  'gpt-6.2-sol': VERIFIED_WEB_0120,
+  'gpt-6.2-astra': VERIFIED_WEB_0120
+});
+// Deep Research is allowed only here (DEC-PLANCHAT-050, D-04b): there is no
+// advertised tier, so a model the account lists stays refused until a live
+// check passes and a decision adds it.
+const RESEARCH_VERIFIED = SEARCH_VERIFIED;
+// Explicit restrictions: no web search, or no Deep Research, whatever the
+// metadata says. Empty in 0.12.0; kept so that a decision can withdraw a model.
+const SEARCH_RESTRICTED = Object.freeze({});
+const RESEARCH_RESTRICTED = Object.freeze({});
+// The values of `web_search_tool_type` that make a model without a verified
+// entry eligible for automatic search (the two the open-source Codex client
+// defines). Exact lower-case strings only.
+const SEARCH_TOOL_TYPES = Object.freeze(['text', 'text_and_image']);
+const SEARCH_TIERS = Object.freeze(['unavailable', 'restricted', 'verified', 'advertised', 'rejected', 'unknown']);
+const RESEARCH_TIERS = Object.freeze(['unavailable', 'restricted', 'verified', 'unverified']);
+
 class StaleCatalogError extends Error {
   constructor() {
     super('The ChatGPT session changed while the model list was loading. Nothing was used from it.');
@@ -79,8 +127,17 @@ function parseModelEntry(raw) {
     // 0.10.0 rule: no visibility, or "list".
     listed: !raw.visibility || raw.visibility === 'list',
     levels: parseLevels(raw),
-    flag: parseFlag(raw)
+    flag: parseFlag(raw),
+    searchType: parseSearchType(raw)
   });
+}
+
+// 0.12.0: 'absent', 'malformed', or one of SEARCH_TOOL_TYPES.
+function parseSearchType(raw) {
+  if (!Object.prototype.hasOwnProperty.call(raw, 'web_search_tool_type')) return 'absent';
+  const value = raw.web_search_tool_type;
+  if (value === undefined || value === null) return 'absent';
+  return typeof value === 'string' && SEARCH_TOOL_TYPES.includes(value) ? value : 'malformed';
 }
 
 function parseLevels(raw) {
@@ -121,13 +178,19 @@ function pickCapabilityFields(raw) {
     supported_reasoning_levels: Array.isArray(levels)
       ? levels.map((item) => (item && typeof item === 'object' && !Array.isArray(item) ? { effort: item.effort } : item))
       : levels,
-    supports_reasoning_effort_updates: raw.supports_reasoning_effort_updates
+    supports_reasoning_effort_updates: raw.supports_reasoning_effort_updates,
+    // 0.12.0: a string is kept (at most 64 characters, validated later); any
+    // other present value becomes `false`, which validation reads as malformed.
+    web_search_tool_type: raw.web_search_tool_type === undefined || raw.web_search_tool_type === null
+      ? raw.web_search_tool_type
+      : typeof raw.web_search_tool_type === 'string' ? raw.web_search_tool_type.slice(0, 64) : false
   };
 }
 
 const sameMetadata = (a, b) => a.levels.state === b.levels.state
   && a.levels.set.join(',') === b.levels.set.join(',')
-  && a.flag === b.flag;
+  && a.flag === b.flag
+  && a.searchType === b.searchType;
 
 // One model's entry from all catalog entries with its slug (table A1 to A6).
 function combineEntries(list) {
@@ -142,7 +205,8 @@ function combineEntries(list) {
     name: first.name,
     available: true,
     levels: agree ? first.levels : Object.freeze({ state: 'ambiguous', set: Object.freeze([]) }),
-    flag: agree ? first.flag : 'ambiguous'
+    flag: agree ? first.flag : 'ambiguous',
+    searchType: agree ? first.searchType : 'ambiguous'
   });
 }
 
@@ -169,6 +233,26 @@ function thinkingFor(entry) {
   return { tier: 'advertised', levels: levels.set, diagnostic: undefined };
 }
 
+// 0.12.0: automatic web search for an available entry (table W1 to W6 in
+// docs/kenlith-0.12.0/SEARCH-CAPABILITY.md). `rejected`: this session's plan
+// route refused web search for this model (ModelCatalog#rejectSearch).
+function searchFor(entry, rejected) {
+  const slug = entry.id;
+  if (Object.prototype.hasOwnProperty.call(SEARCH_RESTRICTED, slug)) return { tier: 'restricted', offered: false, diagnostic: 'restricted' };
+  if (Object.prototype.hasOwnProperty.call(SEARCH_VERIFIED, slug)) return { tier: 'verified', offered: true, diagnostic: undefined };
+  if (rejected) return { tier: 'rejected', offered: false, diagnostic: 'rejected-this-session' };
+  if (SEARCH_TOOL_TYPES.includes(entry.searchType)) return { tier: 'advertised', offered: true, diagnostic: undefined };
+  return { tier: 'unknown', offered: false, diagnostic: `search-type-${entry.searchType}` };
+}
+
+// 0.12.0: Deep Research for an available entry: live-verified only (D-04b).
+function researchFor(entry) {
+  const slug = entry.id;
+  if (Object.prototype.hasOwnProperty.call(RESEARCH_RESTRICTED, slug)) return { tier: 'restricted', allowed: false, diagnostic: 'restricted' };
+  if (Object.prototype.hasOwnProperty.call(RESEARCH_VERIFIED, slug)) return { tier: 'verified', allowed: true, diagnostic: undefined };
+  return { tier: 'unverified', allowed: false, diagnostic: 'not-live-verified' };
+}
+
 // The session-scoped catalog of one window: the validated entries of one
 // account, in memory only. `generation` changes with the session (sign-in,
 // sign-out, account change, sign-in needed again); a load that started in an
@@ -182,6 +266,9 @@ class ModelCatalog {
   #entries = new Map();
   #models = Object.freeze([]);
   #inflight = undefined;
+  // 0.12.0: models whose web search this session's plan route refused. In
+  // memory only; emptied with everything else on every session change.
+  #searchRejected = new Set();
 
   get generation() { return this.#generation; }
   get accountKey() { return this.#accountKey; }
@@ -196,6 +283,7 @@ class ModelCatalog {
     this.#entries = new Map();
     this.#models = Object.freeze([]);
     this.#inflight = undefined;
+    this.#searchRejected = new Set();
   }
 
   // The 0.4.0 session check: drops the catalog only when the account differs
@@ -263,14 +351,47 @@ class ModelCatalog {
     const entry = id ? this.#entries.get(id) : undefined;
     let record;
     if (!entry || !entry.available) {
-      record = { slug: id, available: false, tier: 'unavailable', efforts: Object.freeze([]), diagnostic: entry ? entry.reason : 'not-listed' };
+      const diagnostic = entry ? entry.reason : 'not-listed';
+      record = {
+        slug: id,
+        available: false,
+        tier: 'unavailable',
+        efforts: Object.freeze([]),
+        diagnostic,
+        search: Object.freeze({ tier: 'unavailable', offered: false, diagnostic }),
+        research: Object.freeze({ tier: 'unavailable', allowed: false, diagnostic })
+      };
     } else {
       const thinking = thinkingFor(entry);
-      record = { slug: id, available: true, tier: thinking.tier, efforts: Object.freeze([DEFAULT, ...thinking.levels]), diagnostic: thinking.diagnostic };
+      record = {
+        slug: id,
+        available: true,
+        tier: thinking.tier,
+        efforts: Object.freeze([DEFAULT, ...thinking.levels]),
+        diagnostic: thinking.diagnostic,
+        search: Object.freeze(searchFor(entry, this.#searchRejected.has(id))),
+        research: Object.freeze(researchFor(entry))
+      };
     }
     const frozen = Object.freeze(record);
     ISSUED.set(frozen, { catalog: this, revision: this.#revision });
     return frozen;
+  }
+
+  // 0.12.0 (DEC-PLANCHAT-050, D-04c): the plan route refused web search for
+  // an advertised (not verified) model with an error that names the search
+  // tool (src/research.js searchUnsupported). For the rest of this session
+  // generation the model is not offered web search; nothing is resent. Only
+  // a current record of this catalog counts, so a late error from an earlier
+  // session or model list never changes this one. Verified models are never
+  // suppressed: their refusal stays an ordinary error (DEC-PLANCHAT-045 D4).
+  // Records issued before the change become stale (revision). Returns true
+  // when the state changed.
+  rejectSearch(record) {
+    if (!this.isCurrent(record) || !record.available || record.search?.tier !== 'advertised') return false;
+    this.#searchRejected.add(record.slug);
+    this.#revision += 1;
+    return true;
   }
 
   // True while nothing in this catalog changed since the record was issued.
@@ -300,6 +421,13 @@ function isIssuedRecord(record) {
 
 module.exports = {
   APPROVED_EFFORTS,
+  RESEARCH_RESTRICTED,
+  RESEARCH_TIERS,
+  RESEARCH_VERIFIED,
+  SEARCH_RESTRICTED,
+  SEARCH_TIERS,
+  SEARCH_TOOL_TYPES,
+  SEARCH_VERIFIED,
   CapabilityError,
   DEFAULT,
   LEVELS,

@@ -92,7 +92,12 @@ test('CR-V3 the effort-update flag: true, explicit false, absent, null, and wron
 test('CR-V4 only the capability fields are kept from a model-list entry', () => {
   const [raw] = mc01Catalog();
   const picked = pickCapabilityFields(raw);
-  assert.deepEqual(Object.keys(picked).sort(), ['display_name', 'id', 'name', 'slug', 'supported_reasoning_levels', 'supports_reasoning_effort_updates', 'visibility']);
+  // 0.12.0 (DEC-PLANCHAT-050): web_search_tool_type is the one field added;
+  // supports_search_tool is still never kept.
+  assert.deepEqual(Object.keys(picked).sort(), ['display_name', 'id', 'name', 'slug', 'supported_reasoning_levels', 'supports_reasoning_effort_updates', 'visibility', 'web_search_tool_type']);
+  assert.equal(Object.hasOwn(pickCapabilityFields(one('x', { supports_search_tool: true })), 'supports_search_tool'), false);
+  assert.equal(parseModelEntry(pickCapabilityFields(one('x', { web_search_tool_type: { type: 'text' } }))).searchType, 'malformed');
+  assert.equal(parseModelEntry(pickCapabilityFields(one('x', { web_search_tool_type: 'text_and_image' }))).searchType, 'text_and_image');
   assert.equal(JSON.stringify(picked).includes('decoy'), false);
   assert.equal(JSON.stringify(picked).includes('description'), false);
   assert.deepEqual(picked.supported_reasoning_levels[0], { effort: 'low' });
@@ -244,10 +249,28 @@ test('CR-M1 the MC-01 catalog resolves to the reconciled table', async () => {
   for (const m of catalog.models) for (const e of catalog.resolve(m.id).efforts) assert.ok(ALL.includes(e));
 });
 
-test('CR-M2 web capability is not decided here: RESEARCH_MODELS is unchanged and the server search flags have no effect', async () => {
-  assert.deepEqual(Object.keys(RESEARCH_MODELS).sort(), ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol', 'gpt-6.1-sol', 'gpt-6.1-terra']);
-  const catalog = await catalogOf(mc01Catalog());
-  for (const field of Object.keys(catalog.resolve('gpt-6.2-sol'))) assert.ok(['slug', 'available', 'tier', 'efforts', 'diagnostic'].includes(field), field);
+// 0.12.0 (DEC-PLANCHAT-050): the record now carries web search and Deep
+// Research next to Thinking. The verified table is the DEC-PLANCHAT-044 table
+// plus the two GPT-6.2 models (DEC-PLANCHAT-054); supports_search_tool still
+// has no effect on anything.
+test('CR-M2 (0.12.0) web capability is in the record; the verified table is the 044 table plus GPT-6.2; supports_search_tool has no effect', async () => {
+  assert.deepEqual(Object.keys(RESEARCH_MODELS).sort(), ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6.2-astra', 'gpt-6.2-sol']);
+  const catalog = await catalogOf([...mc01Catalog(), one('gpt-7-nova')]);
+  for (const field of Object.keys(catalog.resolve('gpt-6.2-sol'))) assert.ok(['slug', 'available', 'tier', 'efforts', 'diagnostic', 'search', 'research'].includes(field), field);
+  // MC-01 shape has no web_search_tool_type: GPT-6.2 is verified all the same
+  // (DEC-PLANCHAT-054); a model with no entry and no metadata is not eligible.
+  assert.deepEqual({ ...catalog.resolve('gpt-6.2-sol').search }, { tier: 'verified', offered: true, diagnostic: undefined });
+  assert.deepEqual({ ...catalog.resolve('gpt-6.2-sol').research }, { tier: 'verified', allowed: true, diagnostic: undefined });
+  assert.deepEqual({ ...catalog.resolve('gpt-7-nova').search }, { tier: 'unknown', offered: false, diagnostic: 'search-type-absent' });
+  assert.deepEqual({ ...catalog.resolve('gpt-7-nova').research }, { tier: 'unverified', allowed: false, diagnostic: 'not-live-verified' });
+  for (const flag of [true, false, 'yes', undefined]) {
+    const entries = [...mc01Catalog(), one('gpt-7-nova')].map((entry) => ({ ...entry, supports_search_tool: flag }));
+    const other = await catalogOf(entries);
+    for (const slug of ['gpt-6.2-sol', 'gpt-6.1-sol', 'gpt-5.6-luna', 'gpt-7-nova']) {
+      assert.deepEqual({ ...other.resolve(slug).search }, { ...catalog.resolve(slug).search }, `${slug} ${flag}`);
+      assert.deepEqual({ ...other.resolve(slug).research }, { ...catalog.resolve(slug).research }, `${slug} ${flag}`);
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -570,16 +593,26 @@ test('CR-E3 hidden and ambiguous models are not offered and cannot be sent to', 
   assert.equal(chat.errors().filter((e) => /not available for this ChatGPT account/.test(e)).length, 3);
 });
 
-test('CR-E4 Search web and automatic search are unchanged: refused and not offered for GPT-6.2-Sol, offered for GPT-6.1-Sol', async () => {
+// 0.12.0 (DEC-PLANCHAT-050/051/054): Search web is gone. A legacy `search:
+// true` is an ordinary message (automatic search, never forced). A model with
+// no verified entry and no web_search_tool_type is offered no web search;
+// verified models (GPT-6.1-Sol, and GPT-6.2-Sol since DEC-PLANCHAT-054) are.
+test('CR-E4 (0.12.0) legacy Search web is an ordinary send; no automatic search without eligible metadata, offered for a verified model', async () => {
+  server.models = [...mc01Catalog(), one('gpt-7-nova')];
   const bodies = scripted();
   const w = await openWindow();
   const chat = await w.tab();
-  await chat.send('current news', { model: 'gpt-6.2-sol', search: true });
-  assert.equal(bodies.length, 0);
-  await chat.send('plain question', { model: 'gpt-6.2-sol' });
-  assert.equal(bodies.at(-1).tools, undefined, 'no automatic web search for a model outside RESEARCH_MODELS');
-  await chat.send('plain question', { model: 'gpt-6.1-sol' });
-  assert.deepEqual(bodies.at(-1).tools, [{ type: 'web_search' }]);
+  await chat.send('current news', { model: 'gpt-7-nova', search: true });
+  assert.equal(bodies.length, 1, 'sent once, as an ordinary message');
+  assert.equal(bodies.at(-1).tools, undefined, 'never a forced search, and no search without eligible metadata');
+  assert.equal(bodies.at(-1).tool_choice, undefined);
+  await chat.send('plain question', { model: 'gpt-7-nova' });
+  assert.equal(bodies.at(-1).tools, undefined, 'no automatic web search for a model without eligible metadata');
+  for (const model of ['gpt-6.1-sol', 'gpt-6.2-sol']) {
+    await chat.send('current news', { model, search: true });
+    assert.deepEqual(bodies.at(-1).tools, [{ type: 'web_search' }], model);
+    assert.equal(bodies.at(-1).tool_choice, 'auto', `${model}: automatic, never forced`);
+  }
 });
 
 test('CR-E5 one /v1/models request: sign-in and the session check right after it share one load', async () => {

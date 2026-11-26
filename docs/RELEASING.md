@@ -43,7 +43,9 @@ repository.
 13. Run the public secret and privacy audit on the working tree and on the
     new commits. Check for credentials, credential-shaped literals, personal
     or account data, machine paths, and internal evidence. If anything is
-    found, stop.
+    found, stop. `node --test test/fixture-privacy.test.js` must pass: test
+    fixtures use only synthetic hidden-model names and carry no personal
+    data patterns.
 14. Run `npm test` in the public working copy. Expect pass, with only the
     documented historical-package tests skipped.
 15. Update `CHANGELOG.md`, and the README or user guide where users see a
@@ -76,10 +78,9 @@ The public copy differs from the private source in a few test files only:
   credential-shaped literal is stored. Keep this pattern when you sync test
   changes, and use it for new tests.
 
-- **Synthetic model names.** In `test/capability-resolver.test.js` the two
-  hidden entries of the hand-written model-list shape use synthetic slugs
-  (`hidden-model-a`, `hidden-model-b`). Their visibility, levels and flags,
-  and every assertion, are unchanged.
+Hidden model entries in tests use synthetic names in the private source too
+(from 0.12.0), so no adaptation is needed for them; the test
+`test/fixture-privacy.test.js` keeps it that way in both repositories.
 
 When a private test file changes, re-apply these adaptations to the public
 copy instead of overwriting it.

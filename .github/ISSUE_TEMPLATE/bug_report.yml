@@ -15,7 +15,7 @@ body:
     attributes:
       label: Kenlith version
       description: Shown in the editor's Extensions view.
-      placeholder: "0.11.0"
+      placeholder: "0.12.0"
     validations:
       required: true
   - type: dropdown
@@ -32,7 +32,7 @@ body:
     id: editor-version
     attributes:
       label: Editor version and operating system
-      placeholder: "VS Code 1.143, Windows 11"
+      placeholder: "VS Code 1.148, Windows 11"
     validations:
       required: true
   - type: textarea

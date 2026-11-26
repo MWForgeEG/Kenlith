@@ -29,7 +29,7 @@ allowed are sent. Every file change is shown to you
 before it is applied, and commands that could change anything wait for your
 approval.
 
-![Kenlith 0.11.0: a chat in an editor tab. Below a faint line, the message box shows + then the model GPT-6.2-Sol and Thinking at the start, and Send at the end. The Thinking menu is open with Default, Low, Medium, High, Extra High and Max; High is selected.](docs/assets/kenlith-0.11.0-editor.png)
+![Kenlith 0.12.0: a chat in an editor tab, right to left. An Arabic question comparing the Node.js, Deno and Bun release schedules, answered by Deep Research with numbered citations, the line "Deep Research · 2 web searches · 3 pages read" and an open Sources list. The message box shows + then the model GPT-6.2-Sol and Thinking, and Send at the end.](docs/assets/kenlith-0.12.0-editor.png)
 
 > Kenlith is an independent open-source project. It is not affiliated with or
 > endorsed by OpenAI, Microsoft, Google, Anthropic, or the VS Code project.
@@ -74,11 +74,16 @@ approval.
 - **Automatic web search.** When a question needs current or niche public
   information, the model searches the web with OpenAI's hosted web search
   and answers from it, with citations and a **Sources** list when OpenAI
-  provides them. Timeless questions stay ordinary chat.
-- **Search web** (in **+**) forces a search for your next message.
+  provides them. Timeless questions stay ordinary chat. There is no separate
+  search mode to turn on: ask in words if you want a search. It works with
+  GPT-6.2-Sol and GPT-6.2-Astra (0.12.0) and the other verified models.
+- **"Don't use the internet."** Say so in a message, in common English or
+  Arabic wording, and Kenlith sends that message, and every follow-up step of
+  its reply, without web search.
 - **Deep Research** (in **+**) for questions that need more than a quick
   answer: iterative searching, primary sources, comparison of evidence and a
-  structured, cited report.
+  structured, cited report. It is Kenlith's own guided research in one
+  request, not ChatGPT's Deep Research feature.
 - **Web and project kept apart.** Web search never carries project files,
   tool results or attached code.
 - **Markdown tables** and a wide, responsive conversation layout.
@@ -132,10 +137,10 @@ From a terminal:
 
 ```shell
 # VS Code
-code --install-extension kenlith-antigravity-0.11.0.vsix
+code --install-extension kenlith-antigravity-0.12.0.vsix
 
 # Antigravity IDE
-antigravity-ide --install-extension kenlith-antigravity-0.11.0.vsix
+antigravity-ide --install-extension kenlith-antigravity-0.12.0.vsix
 ```
 
 The same `.vsix` works in both editors; `antigravity` in the file name and the
@@ -231,17 +236,26 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
   list, not a Kenlith test. The advertised levels can change without a
   Kenlith update. If OpenAI refuses a level, the reply says so; nothing is
   retried and the model and level are not changed.
-- **Web search and Deep Research run only with verified models.** These are
+- **Which models search and run Deep Research.** Verified (checked live on
+  the ChatGPT-plan route): `gpt-6.2-sol`, `gpt-6.2-astra` (0.12.0),
   `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`,
-  `gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna`. With any other model,
-  including `gpt-6.2-sol`, `gpt-6.2-astra` and new models your account
-  starts to list, chat works without automatic web search, and Search web
-  or Deep Research sends nothing and asks you to choose a supported model.
+  `gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna`. A newer model gets
+  automatic web search only when your account's model list says it supports
+  web search; if OpenAI then refuses web search for it, the reply says so,
+  nothing is resent, and Kenlith stops offering web search with that model
+  until you sign in again. Deep Research runs only with the verified models;
+  with any other model it sends nothing and asks you to choose one.
+- **GPT-6.2 checks were limited.** One account, GPT-6.2-Sol at Default and
+  High and GPT-6.2-Astra at Max, one short question per case.
 - **Deep Research runs in the foreground.** Closing the editor ends a run;
   the reply is kept as interrupted and offers **Retry**. There is no
-  background research.
+  background research. It is not ChatGPT's own Deep Research feature.
 - **Web search is the model's judgment.** The model decides when a question
-  needs the web. Use **Search web** to force a search.
+  needs the web; ask for a search in words. There is no way to force one.
+- **"Don't use the internet" is recognized from a fixed list** of common
+  English and Arabic phrasings, not by understanding the language. Quoted
+  text is not read as an instruction. Other wording falls back to the model's
+  judgment, which is not a guarantee.
 - **Project and web questions are not combined.** Ask the web part on its
   own.
 - **Not every web answer has citations.** Some live data, such as weather,

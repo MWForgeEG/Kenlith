@@ -69,11 +69,12 @@ one of the boundaries above.
   Chats are stored locally in the extension's storage folder.
 - Kenlith cannot access your ChatGPT conversations, memories or projects on
   chatgpt.com.
-- **Web search** (automatic, **Search web** and **Deep Research**) uses
-  OpenAI's hosted public web search. A web request carries your question and
-  the chat's text. Kenlith never adds project files, tool results, attached
-  code or project tools to it, and never offers web search in a request that
-  holds them. See the
+- **Web search** (automatic, and **Deep Research**) uses OpenAI's hosted
+  public web search. A web request carries your question and the chat's
+  text. Kenlith never adds project files, tool results, attached code or
+  project tools to it, and never offers web search in a request that holds
+  them. A message that asks not to use the internet is sent without web
+  search (recognized from a fixed list of English and Arabic phrasings). See the
   [security model](docs/SECURITY-MODEL.md#web-search-and-deep-research).
 - If you suspect token exposure, choose **Sign Out** in Kenlith. Then
   disconnect the app in ChatGPT under **Settings > Security and login > Sign

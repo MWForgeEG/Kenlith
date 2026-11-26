@@ -1,6 +1,7 @@
 'use strict';
 
 const { redactSecrets } = require('./util');
+const { RESEARCH_VERIFIED } = require('./capabilities');
 
 // Kenlith 0.9.0: Deep Research (0.9.1: the model table below). The one place that knows which models may run
 // it, what a research request adds, and how long one may run. The view, the
@@ -22,17 +23,11 @@ const { redactSecrets } = require('./util');
 // not silently used or switched to: the user is told, and chooses.
 // Evidence: docs/release-evidence/kenlith-0.9.0/feasibility/ (the 0.9.0
 // model) and docs/release-evidence/kenlith-0.9.1/compat-probe/ (the other seven).
-const EVIDENCE = 'official model page lists Responses API web_search; live ChatGPT-plan route check passed 2026-11-14';
-const RESEARCH_MODELS = Object.freeze({
-  'gpt-6-astra': EVIDENCE,
-  'gpt-6.1-sol': EVIDENCE,
-  'gpt-6.1-terra': EVIDENCE,
-  'gpt-6-sol': EVIDENCE,
-  'gpt-6-luna': EVIDENCE,
-  'gpt-5.6-sol': EVIDENCE,
-  'gpt-5.6-terra': EVIDENCE,
-  'gpt-5.6-luna': EVIDENCE
-});
+// 0.12.0 (DEC-PLANCHAT-050): the table is the capability resolver's
+// live-verified Deep Research tier (src/capabilities.js RESEARCH_VERIFIED);
+// requests are gated by the capability record (`record.research.allowed`),
+// and this export stays for the 0.9.x callers and tests.
+const RESEARCH_MODELS = RESEARCH_VERIFIED;
 
 // The only fields a research request adds to a 0.8.0 request (Owner,
 // 2026-11-14). `include` is not sent: the consulted-source list is not used.
@@ -58,7 +53,9 @@ const SEARCH_INSTRUCTIONS = [
 
 // 0.10.0 Path A: a request already free of project data offers hosted web
 // search with tool_choice "auto"; the model decides, as in ChatGPT.
-const WEB_AUTO_POLICY = 'You can use web search. Use it when the user\'s latest message needs current or niche public information, such as weather, news, prices, schedules or recent releases; do not search for things you can answer reliably without it. When you use web search, cite your sources.';
+// 0.12.0 (DEC-PLANCHAT-051): an explicit request to search is honoured by the
+// model (no forced tool choice; no keyword routing to search).
+const WEB_AUTO_POLICY = 'You can use web search. Use it when the user\'s latest message needs current or niche public information, such as weather, news, prices, schedules or recent releases, or when the user explicitly asks you to search the web; do not search for things you can answer reliably without it. When you use web search, cite your sources.';
 
 // 0.10.0 Path B: a request that can reach the project never offers hosted
 // web search. It offers this internal signal instead (the namespace form
@@ -73,12 +70,12 @@ const SIGNAL_TOOL = Object.freeze({
   tools: Object.freeze([Object.freeze({
     type: 'function',
     name: SIGNAL_NAME,
-    description: 'Call this, with no arguments and before answering, when the user\'s latest message needs current or niche public information: weather, news, prices, exchange rates, sports results, current software releases, schedules, recent documentation, current laws or rules, or other public facts that change over time. Do not call it for explanations, code, or anything you can answer reliably from general knowledge or the conversation. Calling it hands the message to a separate web search.',
+    description: 'Call this, with no arguments and before answering, when the user\'s latest message needs current or niche public information: weather, news, prices, exchange rates, sports results, current software releases, schedules, recent documentation, current laws or rules, or other public facts that change over time, or when the user explicitly asks you to search the web. Do not call it for explanations, code, or anything you can answer reliably from general knowledge or the conversation. Calling it hands the message to a separate web search.',
     parameters: Object.freeze({ type: 'object', properties: Object.freeze({}), additionalProperties: false }),
     strict: true
   })])
 });
-const ROUTING_POLICY = `If the user's latest message needs current or niche public information, call ${SIGNAL_NAMESPACE}.${SIGNAL_NAME} (it takes no arguments) before answering, and call no other tool in that response. Otherwise answer normally.`;
+const ROUTING_POLICY = `If the user's latest message needs current or niche public information, or the user explicitly asks you to search the web, call ${SIGNAL_NAMESPACE}.${SIGNAL_NAME} (it takes no arguments) before answering, and call no other tool in that response. Otherwise answer normally.`;
 
 // A call is the signal only with both its namespace and its name.
 function isSignalCall(call) {
@@ -152,8 +149,37 @@ function researchRejection(error, { effortLabel, mode = 'deep-research' } = {}) 
   return undefined;
 }
 
+// 0.12.0 (DEC-PLANCHAT-050, D-04c): does this error establish that the plan
+// route does not support web search for this request? Only an error that
+// names the tools: `subscription_sharing_unsupported_capability` with
+// `error.param` pointing at `tools` or `tool_choice` (OpenAI: "Inspect
+// error.param"), or an HTTP 400 naming the tools and web search. A capability
+// error without a param may be the thinking level, so it does not count;
+// neither do other HTTP errors, connectivity failures, rate or usage limits,
+// authentication errors or cancellation.
+const TOOL_PARAM = /^(tools|tool_choice)(\b|\[|\.)/i;
+function searchUnsupported(error) {
+  if (!error || typeof error !== 'object' || error.name === 'AbortError') return false;
+  const param = typeof error.param === 'string' ? error.param : '';
+  if (!TOOL_PARAM.test(param)) return false;
+  if (error.code === 'subscription_sharing_unsupported_capability') return true;
+  const said = `${error.message || ''} ${typeof error.providerMessage === 'string' ? error.providerMessage : ''}`;
+  return Number(error.status) === 400 && /web[_ ]search/i.test(said);
+}
+
+// The note added to the failed reply when web search was suppressed for the
+// rest of the session (D-04c). Nothing is resent.
+const SEARCH_SUPPRESSED_NOTE = 'Kenlith will not offer web search with this model again in this ChatGPT session. Send your message again to get an answer without the web, or choose another model.';
+
+// 0.12.0 (DEC-PLANCHAT-051): Deep Research selected, and the message asks not
+// to use the internet. Nothing is sent until the user resolves it.
+const NO_WEB_RESEARCH_CONFLICT = 'Deep Research searches the web, but your message asks not to use the internet. Turn Deep Research off, or remove that instruction. Nothing was sent.';
+
 module.exports = {
   MIXED_STOP_TEXT,
+  NO_WEB_RESEARCH_CONFLICT,
+  SEARCH_SUPPRESSED_NOTE,
+  searchUnsupported,
   PHASES,
   RESEARCH_INSTRUCTIONS,
   RESEARCH_MODELS,

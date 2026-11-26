@@ -5,6 +5,44 @@ kept for reference; the release packages of versions before 0.8.0 are not
 published in this repository. Entries before 0.4.1 use the earlier setting
 names (`planChat.*`); the settings are now `kenlith.*`.
 
+## 0.12.0 (2026-11-26)
+
+**Summary.** Web search is automatic and the Search web item is gone;
+GPT-6.2-Sol and GPT-6.2-Astra search the web and run Deep Research; a message
+can ask not to use the internet. Project sharing, Review Before Apply and your
+chats work as before.
+
+- **Automatic web search, no Search web item.** Ask as usual: when a question
+  needs current public information, the model searches and the answer comes
+  with citations and Sources. Ask for a search in words if you want one. The
+  **+** menu now holds Deep Research, Attach selection and the project items.
+  Answers from Search web in earlier versions keep their Sources; **Retry** on
+  one puts the question back for an ordinary Send.
+- **GPT-6.2-Sol and GPT-6.2-Astra** search the web automatically and run
+  Deep Research. Checked live on the ChatGPT-plan route: GPT-6.2-Sol at
+  Default and High, GPT-6.2-Astra at Max; searches ran and sources were shown
+  and saved, also in a project chat, where the search ran as a separate
+  web-only request.
+- **Newer models.** A model Kenlith has not checked gets automatic web search
+  when your account's model list says it supports web search. If OpenAI then
+  refuses web search for it, the reply says so, nothing is resent, and
+  Kenlith stops offering web search with that model until you sign in again.
+  Deep Research still runs only with checked models.
+- **"Don't use the internet."** A message that says so in common English or
+  Arabic wording ("don't search", "no internet", "answer from memory",
+  "بدون بحث") is sent, with every follow-up step of its reply, without web
+  search. Quoted text and code are not read as instructions. It is a fixed
+  list, not language understanding. With Deep Research on, such a message is
+  not sent until you turn one of them off.
+- **Deep Research** is described more precisely: it is Kenlith's own guided
+  web research in one request, not ChatGPT's Deep Research feature.
+- Not changed: sign-in, project sharing and its boundaries (no project data
+  in any request that can reach the web), chat storage, Review Before Apply,
+  commands, Thinking levels and the message box layout.
+
+Package: `kenlith-antigravity-0.12.0.vsix`, SHA-256
+`A2C429161A91D12BDE2875E25E9E6F199C9D21F44D892FBD18A93204A1B8E9F1`.
+
 ## 0.11.0 (2026-11-26)
 
 **Summary.** Thinking levels for newer ChatGPT models without waiting for a

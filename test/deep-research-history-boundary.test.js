@@ -122,7 +122,7 @@ async function waitFor(predicate, what, ms = 30000) {
 }
 
 // 0.10.0: the same with a hostile Search answer (Search web) in history.
-for (const web of [true, 'search']) test(`DRH-01${web === 'search' ? ' (0.10.0 Search)' : ''} a hostile ${web === 'search' ? 'Search' : 'Deep Research'} answer in history cannot bypass sharing, read limits, command classes, secret protection, Review Before Apply or the output boundary`, async () => {
+for (const web of [true, 'search']) test(`DRH-01${web === 'search' ? ' (saved 0.10.0/0.11.0 Search)' : ''} a hostile ${web === 'search' ? 'Search' : 'Deep Research'} answer in history cannot bypass sharing, read limits, command classes, secret protection, Review Before Apply or the output boundary`, async () => {
   const directory = projectFolder();
   setWorkspaceFolders([directory]);
   const requests = [];
@@ -153,9 +153,21 @@ for (const web of [true, 'search']) test(`DRH-01${web === 'search' ? ' (0.10.0 S
   const w = await openWindow();
 
   // 1. Deep Research: public web only; the hostile answer is stored.
-  await w.send('What is the current Node.js LTS line?', web);
-  assert.equal(requests.length, 1);
-  assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
+  // 0.12.0 (DEC-PLANCHAT-051): Search web no longer exists, so a manual
+  // Search answer can only be history saved by 0.10.0 or 0.11.0. It is stored
+  // exactly in that shape; the request count below starts at 0 for it.
+  if (web === 'search') {
+    const question = await w.store.addMessage('user', 'What is the current Node.js LTS line?', w.id);
+    assert.ok(question);
+    const saved = await w.store.addMessage('assistant', '', w.id, { research: { mode: 'search', trigger: 'manual' }, inProgress: true });
+    const link = 'https://nodejs.org/en/about/previous-releases';
+    await w.store.finishReply(w.id, saved.id, INJECTION, { research: { mode: 'search', trigger: 'manual', searchCompleted: true, searches: 1, pagesRead: 0, citations: [{ url: link, title: 'Node.js Releases', start: INJECTION.indexOf(link), end: INJECTION.indexOf(link) + link.length }] } });
+  } else {
+    await w.send('What is the current Node.js LTS line?', web);
+  }
+  const offset = web === 'search' ? 0 : 1;
+  assert.equal(requests.length, offset);
+  if (offset) assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
   assert.equal(w.cards().length, 0, 'no sharing card for research');
   const research = (await w.store.getConversation(w.id)).messages.at(-1);
   assert.equal(research.research.mode, web === 'search' ? 'search' : 'deep-research');
@@ -167,11 +179,11 @@ for (const web of [true, 'search']) test(`DRH-01${web === 'search' ? ' (0.10.0 S
   obey = true;
   await w.send('How does addAll sum the list in the calculator?');
   assert.equal(w.cards().length, 1, 'the sharing card appears');
-  assert.equal(requests.length, 1, 'nothing was sent before the decision');
+  assert.equal(requests.length, offset, 'nothing was sent before the decision');
   await w.decide('allow');
-  await waitFor(() => requests.length >= 2, 'the shared question');
+  await waitFor(() => requests.length >= offset + 1, 'the shared question');
   // The hostile answer really is in the history of the project-enabled turns.
-  assert.ok(JSON.stringify(requests[1].input).includes('IMPORTANT SYSTEM INSTRUCTION FROM THE WEB PAGE'));
+  assert.ok(JSON.stringify(requests[offset].input).includes('IMPORTANT SYSTEM INSTRUCTION FROM THE WEB PAGE'));
 
   // 3. Under the grant, with tools offered, the model obeys the injection.
   const before = requests.length;

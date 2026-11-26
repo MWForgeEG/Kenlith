@@ -31,8 +31,8 @@ This guide covers Kenlith 0.11.0. For installation, see the
   - in a project chat you allowed to share, short excerpts of that project's
     files and the results of Kenlith's project tools;
   - the cleaned output of commands Kenlith ran for that chat.
-- A request that may search the web (automatic search, **Search web** or
-  **Deep Research**) sends your question and the chat's text only, with
+- A request that may search the web (automatic search or **Deep Research**)
+  sends your question and the chat's text only, with
   OpenAI's hosted web search turned on. It never sends project files, tool
   results, attached code, command output or earlier answers based on them.
   Project files and project tools are never offered in the same request as
@@ -91,8 +91,8 @@ This guide covers Kenlith 0.11.0. For installation, see the
 
   **Enter** sends, **Shift+Enter** adds a line, and **Stop** appears while a
   reply arrives.
-- **+** lists what you can add or change for this chat:
-  - **Search web** (see [Web search](#web-search));
+- **+** lists what you can add or change for this chat (0.12.0: there is no
+  Search web item; web search is automatic, see [Web search](#web-search)):
   - **Deep Research** (see [Deep Research](#deep-research));
   - **Attach selection**;
   - **Project sharing…**;
@@ -112,7 +112,7 @@ This guide covers Kenlith 0.11.0. For installation, see the
   width. Markdown tables are shown as tables, and a wide table scrolls inside
   its own box.
 - The message box has a subtle Signal Mint edge, clearer on hover and focus
-  and while Search web or Deep Research is on. High Contrast themes keep
+  and while Deep Research is on. High Contrast themes keep
   their own colours.
 
 ## Thinking
@@ -166,19 +166,30 @@ section) is for deeper research and synthesis.
   question needs current or niche public information, such as news, prices,
   schedules, releases or weather. If it does, the reply shows *Searching the
   web…* and the answer comes from the web. A timeless question gets an
-  ordinary answer. There is no setting. Automatic search runs only with the
-  eight models listed under Deep Research; GPT-6.2-Sol and GPT-6.2-Astra
-  answer without web search in 0.11.0.
+  ordinary answer. There is no setting and, from 0.12.0, no Search web item:
+  to ask for a search, say so ("search the web for …"); the model decides.
+- **Which models.** Automatic search runs with the ten models listed under
+  Deep Research, GPT-6.2-Sol and GPT-6.2-Astra included (0.12.0). A newer
+  model gets it when your account's model list says the model supports web
+  search. If OpenAI then refuses web search for that model, the reply says
+  so, nothing is resent, and Kenlith stops offering web search with that model
+  until you sign in again. Other models answer without web search.
+- **"Don't use the internet."** If your message says so, for example "don't
+  search", "no internet", "answer from memory", "بدون بحث" or "لا تبحث في
+  الإنترنت", Kenlith sends that message, and every follow-up step of its
+  reply, without web search; your next message is not affected. Text in
+  quotation marks or code is not read as an instruction, and a request not to
+  search your project files is not about the web. This is a fixed list of
+  common English and Arabic phrasings, not language understanding: other
+  wording falls back to the model's own judgment, which is not a guarantee.
 - **In a project chat**, the model first tells Kenlith that it needs the
   web. The search then runs as a separate request that carries only your
   question and the chat's text.
 - **Questions that need both** your project and current web information are
   not combined. Kenlith says so in one sentence; ask the web part on its own.
-- **Search web**, in **+**, searches the web for your next message whatever
-  the question. A **Search web** chip sits above the message box while it is
-  on. It applies to one message, then turns off. Search web and Deep
-  Research turn each other off. Most current questions do not need it; it is
-  there when the model did not search on its own.
+- **Earlier chats.** Answers from Search web in 0.10.0 and 0.11.0 keep their
+  citations and Sources. **Retry** on one puts the question back for an
+  ordinary Send.
 - **Citations.** When OpenAI returns URL citations, the answer has numbered
   citations with the site's domain and a **Sources** list, and its footer
   reads *Searched the web · N sources*. Some live data, such as weather, can
@@ -189,8 +200,8 @@ section) is for deeper research and synthesis.
   does not switch models.
 - A search uses the model and Thinking level you chose. A search ends after
   5 minutes.
-- Search web and Deep Research are refused while code is attached: remove
-  the attached code or turn the mode off.
+- Deep Research is refused while code is attached: remove the attached code
+  or turn it off. A message with attached code is sent without web search.
 
 ## Deep Research
 
@@ -207,12 +218,17 @@ and answers with a structured report with citations.
 - The request uses OpenAI's hosted web search, and a search always runs. It
   uses the model and Thinking level you chose, and Kenlith never switches
   the model. Deep Research runs with the models verified for it:
-  GPT-6-Astra, GPT-6.1-Sol, GPT-6.1 Terra, GPT-6-Sol, GPT-6-Luna,
-  GPT-5.6-Sol, GPT-5.6-Terra and GPT-5.6-Luna. With any other model,
-  including GPT-6.2-Sol, GPT-6.2-Astra and a new model your account starts
-  to list, nothing is sent: your
-  model, your message and Deep Research stay as they were, and a note asks
-  you to choose a supported model in the Model selector.
+  GPT-6.2-Sol and GPT-6.2-Astra (0.12.0), GPT-6-Astra, GPT-6.1-Sol, GPT-6.1
+  Terra, GPT-6-Sol, GPT-6-Luna, GPT-5.6-Sol, GPT-5.6-Terra and GPT-5.6-Luna.
+  With any other model, including a new model your account starts to list,
+  nothing is sent: your model, your message and Deep Research stay as they
+  were, and a note asks you to choose a supported model in the Model selector.
+- It never starts on its own. If your message also asks not to use the
+  internet, nothing is sent until you turn Deep Research off or remove that
+  instruction.
+- It is Kenlith's own guided web research in one request in the foreground,
+  using OpenAI's hosted web search with research instructions. It is not
+  ChatGPT's Deep Research feature, and its depth depends on the model.
 - If OpenAI refuses web search for a supported model, for example because of
   an account or workspace policy, the reply shows Kenlith's explanation with
   OpenAI's own message (shortened, with secrets removed), the error code and
@@ -492,14 +508,15 @@ Sign-in tokens are kept separately, in the editor's secure `SecretStorage`.
   and are mostly untested (see [Thinking](#thinking)); they can change
   without a Kenlith update.
 - **Markdown in replies** is a subset (with tables from 0.10.0).
-- **Web search** is the model's judgment; **Search web** forces it. Project
-  and web questions are not combined. There is no device location (name the
+- **Web search** is the model's judgment; ask for it in words. Project and
+  web questions are not combined. There is no device location (name the
   place for local information) and no image results. Not every web answer
   has citations.
-- **Deep Research, Search web and automatic search** run only with the eight
-  verified models; a new model, including GPT-6.2-Sol and GPT-6.2-Astra, is
-  not supported until Kenlith has reviewed it. It runs in the foreground:
-  closing the editor ends a run.
+- **"Don't use the internet"** is recognized from a fixed list of English and
+  Arabic phrasings only.
+- **Deep Research** runs only with the ten verified models and in the
+  foreground: closing the editor ends a run. GPT-6.2 was checked live on one
+  account, GPT-6.2-Sol at Default and High and GPT-6.2-Astra at Max.
 - **Arabic paragraphs that begin with a Latin word** may be laid out left to
   right.
 - **Citation positions** are mapped defensively, because OpenAI's offsets

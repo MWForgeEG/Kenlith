@@ -51,7 +51,9 @@ const { ModelCatalog, StaleCatalogError } = require('./capabilities');
 const catalogKeyOf = (session, authService) => (session ? `${session.subject || ''}|${session.email || ''}|${Number(authService?.sessionEpoch) || 0}` : '');
 // 0.9.0: Deep Research (src/research.js, src/citations.js).
 const researchPolicy = require('./research');
-const { ResearchModelError, researchRejection, supportsResearch } = require('./research');
+const { NO_WEB_RESEARCH_CONFLICT, ResearchModelError, researchRejection } = require('./research');
+// 0.12.0 (DEC-PLANCHAT-051): explicit no-internet instructions.
+const { detectNoWeb } = require('./web-intent');
 const { placeCitations } = require('./citations');
 const { USAGE_PAUSE_KEY, USAGE_SETTINGS_URL, UsagePausedError, WELCOME_ACTION, WELCOME_DETAIL, WELCOME_KEY, WELCOME_TITLE, isUsageLimitError, usesPlan } = require('./siwc');
 const { redactSecrets, safeError } = require('./util');
@@ -1400,11 +1402,10 @@ class ChatEngine {
           break;
         case 'send': {
           // 0.9.0: `research` only as the literal true (Deep Research on at Send).
-          // 0.10.0: `search` likewise (Search web on at Send). Both at once is refused.
-          if (message.research === true && message.search === true) {
-            throw new Error('Choose either Search web or Deep Research for one message, not both. Nothing was sent.');
-          }
-          const web = message.research === true ? 'deep-research' : message.search === true ? 'search' : false;
+          // 0.12.0 (DEC-PLANCHAT-051): Search web is gone; web search is
+          // automatic. A legacy `search: true` (a page from 0.10.0/0.11.0) is
+          // an ordinary message: automatic search, never a forced one.
+          const web = message.research === true ? 'deep-research' : false;
           await this.#send(surface, message.text, message.model, message.attachmentId, undefined, message.sendId, message.draftRev, message.effort, web);
           break;
         }
@@ -2415,8 +2416,16 @@ class ChatEngine {
     // attached code. Refused here, before anything is stored; nothing is sent.
     // 0.10.0: `research` is the web mode of this Send: 'deep-research',
     // 'search' (Search web) or false.
+    // 0.12.0 (DEC-PLANCHAT-051): an explicit no-internet instruction in the
+    // typed text (src/web-intent.js) removes web search from this message and
+    // every continuation of it; with Deep Research selected nothing is sent.
+    const noWeb = detectNoWeb(text).noWeb;
+    if (research === 'deep-research' && noWeb) {
+      throw new Error(NO_WEB_RESEARCH_CONFLICT);
+    }
     if (research) {
-      if (!supportsResearch(selectedModel)) {
+      // 0.12.0 (DEC-PLANCHAT-050): from the capability record.
+      if (research === 'search' ? capability.search?.offered !== true : capability.research?.allowed !== true) {
         throw new ResearchModelError(this.models.find((model) => model.id === selectedModel)?.name || selectedModel, research);
       }
       if (attachmentId !== undefined && attachmentId !== null) {
@@ -2469,7 +2478,9 @@ class ChatEngine {
       capability,
       // 0.10.0: the web mode, or automatic search for an ordinary message.
       web: research || undefined,
-      autoSearch: !research
+      autoSearch: !research,
+      // 0.12.0: no hosted search and no signal for this message.
+      noWeb
     });
     // 0.10.0 Path B: the history an isolated search would carry, taken now,
     // before this message is stored (no grant, no attachment replies, redacted).
@@ -2974,7 +2985,14 @@ class ChatEngine {
         const webRequest = Boolean(request.research || request.autoWeb);
         const researchRefused = webRequest && !usageAction(error) ? researchRejection(error, { effortLabel, mode: webMode || 'search' }) : undefined;
         const rejected = researchRefused || (!usageAction(error) && request.reasoning ? effortRejection(error, request.reasoning.effort, { tools: Boolean(request.tools), tier: request.capability?.tier }) : undefined);
-        const message = rejected ? `${rejected} ${safeError(error)}` : safeError(error);
+        // 0.12.0 (D-04c): a refusal that names the search tool, for a model
+        // only advertised (not verified), stops web search for that model for
+        // the rest of this session. Automatic search and the isolated search
+        // only; nothing is resent, no model or level changes.
+        const autoSearchRequest = Boolean(request.autoWeb || request.research?.mode === 'search');
+        const suppressed = autoSearchRequest && !usageAction(error) && researchPolicy.searchUnsupported(error) && this.catalog.rejectSearch(request.capability);
+        const base = rejected ? `${rejected} ${safeError(error)}` : safeError(error);
+        const message = suppressed ? `${base} ${researchPolicy.SEARCH_SUPPRESSED_NOTE}` : base;
         const display = content || `Request failed: ${message}`;
         // Project context that never passed the last check was not sent.
         const notSent = Boolean(project.grant && !project.released);

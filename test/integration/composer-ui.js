@@ -336,8 +336,9 @@ async function main() {
     const mbg = ib && ib.a > 0 ? over(ib, menuBg) : menuBg;
     const textRatio = ratio(over(parseColor(menu.fg), mbg), mbg);
     const descRatio = ratio(over(parseColor(menu.desc), mbg, Number(menu.descOpacity)), mbg);
-    check(`${tag}: Enter opens the + menu with only real actions, focus on the first, inside the page; text ≥ 4.5:1`, menu.open && menu.expanded === 'true' && menu.focused === 'menuSearch'
-      && JSON.stringify(menu.labels) === JSON.stringify(['Search web', 'Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']) && menu.inside && textRatio >= 4.5 && descRatio >= 4.5, { ...menu, textRatio, descRatio });
+    // 0.12.0 (DEC-PLANCHAT-051): Search web is removed; Deep Research is first.
+    check(`${tag}: Enter opens the + menu with only real actions, focus on the first, inside the page; text ≥ 4.5:1`, menu.open && menu.expanded === 'true' && menu.focused === 'menuResearch'
+      && JSON.stringify(menu.labels) === JSON.stringify(['Deep Research', 'Attach selection', 'Project sharing…', 'Project context settings…']) && menu.inside && textRatio >= 4.5 && descRatio >= 4.5, { ...menu, textRatio, descRatio });
     await input.press('ArrowDown');
     const second = await inChat(a, "d.activeElement && d.activeElement.id");
     await input.press('ArrowUp');
@@ -346,7 +347,7 @@ async function main() {
     await input.press('Escape');
     await sleep(200);
     const closed = await inChat(a, "({ open: !d.getElementById('plusMenu').classList.contains('hidden'), focused: d.activeElement && d.activeElement.id, expanded: d.getElementById('plus').getAttribute('aria-expanded') })");
-    check(`${tag}: arrows move through the menu (Search web, then Deep Research; wrapping); Escape closes it and returns focus to +`, second === 'menuResearch' && wrapped === 'menuSettings' && !closed.open && closed.focused === 'plus' && closed.expanded === 'false', { second, wrapped, closed });
+    check(`${tag}: arrows move through the menu (Deep Research, then Attach selection; wrapping); Escape closes it and returns focus to +`, second === 'menuAttach' && wrapped === 'menuSettings' && !closed.open && closed.focused === 'plus' && closed.expanded === 'false', { second, wrapped, closed });
     a.web.close();
   }
 

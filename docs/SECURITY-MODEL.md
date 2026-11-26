@@ -131,15 +131,30 @@ every request in a tool loop. It:
   then sends a separate web-only request with the question and the chat's
   text. If project data already entered that turn, Kenlith sends no web
   request and says that it cannot combine the two.
-- **Search web and Deep Research** are such web-only requests, with
+- **Deep Research** is such a web-only request, with
   `tool_choice: "required"`, for one message. The search runs on OpenAI's
-  side; Kenlith fetches no web page itself.
-- It runs only with models in one built-in table (`src/research.js`). A model
-  is added only after review, never because the account's model list
-  includes it. With any other model the request is refused locally and
-  nothing is sent; Kenlith never switches the model. When OpenAI refuses web
-  search, the error shown may include OpenAI's own message, cut to 500
-  characters and passed through the same secret redaction as other errors.
+  side; Kenlith fetches no web page itself. There is no manual Search web
+  mode from 0.12.0.
+- **Which models (0.12.0).** One capability resolver (`src/capabilities.js`)
+  decides per model: web search is offered to models in a built-in verified
+  table (checked live on the ChatGPT-plan route), and to a model whose
+  account model list gives `web_search_tool_type` exactly `text` or
+  `text_and_image` (advertised, never described as verified). Missing,
+  malformed or conflicting metadata gives no web search; the
+  `supports_search_tool` field is never used. Deep Research runs only with
+  the verified table; with any other model the request is refused locally
+  and nothing is sent. Kenlith never switches the model.
+- **Refusals.** When OpenAI refuses web search, the error shown may include
+  OpenAI's own message, cut to 500 characters and passed through the same
+  secret redaction as other errors. Nothing is resent. Only for an
+  advertised model, and only for a refusal that names the web search tool,
+  Kenlith stops offering web search with that model for the rest of the
+  sign-in, in memory only; other errors never do.
+- **"Don't use the internet."** When the typed text of a message asks not to
+  use the internet (a fixed list of English and Arabic phrasings; quoted text
+  and code excluded), the request and every continuation of it carry no web
+  tool at all, and the service refuses any request that carries both the
+  mark and a web tool. This only removes web search; it never adds it.
 - A web request carries the question and the chat's text, with secret-like
   text removed. Kenlith leaves out project excerpts, tool results, attached
   code, command output and earlier answers that used project data, and it
@@ -170,8 +185,9 @@ every request in a tool loop. It:
   sent; a request built under an earlier sign-in or for another model is
   refused locally. A level OpenAI refuses is not retried, and the model and
   level are not changed.
-- The model list does not enable web search: Search web, automatic search
-  and Deep Research still use the built-in table described above.
+- From 0.12.0 the model list can enable automatic web search for a model
+  outside the verified table, through the validated `web_search_tool_type`
+  field described above. It never enables Deep Research.
 
 ## Sign-in
 

@@ -1,43 +1,35 @@
 'use strict';
 
-// Kenlith 0.7.0: integrity check of the genuine symbolic-link fixtures used by
+// Integrity check of the genuine symbolic-link fixtures used by
 // test/sg-m1-1-symlinks.test.js (SG6-F0 to F4), for the start of a security
-// gate. Not elevated; reads only. Their links disappeared once (2026-11-08,
-// cause unknown) and the gate then failed late; this finds it first.
+// gate. Not elevated; reads only. Kenlith 0.7.0; 0.12.0 (DEC-PLANCHAT-052):
+// the persistent folder %LOCALAPPDATA%\Kenlith\TestFixtures\SG6 and the full
+// verification of test/helpers/sg6-fixtures.js (canonical path, sentinel,
+// derived paths, link type, target, reparse tag, content, owners).
 //
-//   node test/fixtures-m1/check-symlink-fixtures.js
-// Exit 0: every expected link is a genuine symbolic link to its manifest
-// target, every target is inside the fixture folder and exists.
-// Exit 1: what is wrong, and how to recreate the fixtures (elevated, once).
+//   node test/fixtures-m1/check-symlink-fixtures.js [--require-persistent]
+// Prints which set is used and why (the persistent folder, the
+// PLAN_CHAT_SYMLINK_FIXTURES override, or the reported fallback to the earlier
+// TEMP set while the persistent links do not exist yet).
+// Exit 0: the set in use is complete and genuine.
+// Exit 1: what is wrong, and how to repair it.
+// Exit 2 (--require-persistent, used by the 0.12.0 release gate): the set is
+// fine but it is not the persistent one.
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const { loadSg6Fixtures } = require('../helpers/sg6-fixtures');
 
-const base = process.env.PLAN_CHAT_SYMLINK_FIXTURES || path.join(os.tmpdir(), 'plan-chat-sg-m1-1-symlinks');
-const problems = [];
-const manifestFile = path.join(base, 'manifest.json');
-let manifest;
-try {
-  manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8').replace(/^﻿/, ''));
-} catch {
-  problems.push(`no readable manifest at ${manifestFile}`);
-}
-const inside = (p) => path.resolve(p).toLowerCase().startsWith(path.resolve(base).toLowerCase() + path.sep);
-for (const link of manifest?.links || []) {
-  let stat;
-  try { stat = fs.lstatSync(link.path); } catch { problems.push(`missing: ${link.path}`); continue; }
-  if (!stat.isSymbolicLink()) { problems.push(`not a symbolic link: ${link.path}`); continue; }
-  const target = path.resolve(path.dirname(link.path), fs.readlinkSync(link.path));
-  if (target.toLowerCase() !== path.resolve(link.target).toLowerCase()) problems.push(`unexpected target: ${link.path} -> ${target}`);
-  if (!inside(target)) problems.push(`target outside the fixture folder: ${target}`);
-  if (!fs.existsSync(target)) problems.push(`target missing: ${target}`);
-}
-if (manifest && (manifest.links || []).length !== 4) problems.push(`expected 4 links in the manifest, found ${(manifest.links || []).length}`);
-if (problems.length) {
+const requirePersistent = process.argv.includes('--require-persistent');
+const result = loadSg6Fixtures();
+console.log(result.report);
+if (result.fallback) console.log(`  persistent folder ${result.persistentBase}: not usable yet; using the earlier TEMP set`);
+if (result.state !== 'ok') {
   console.log('SYMLINK FIXTURES NOT USABLE');
-  for (const p of problems) console.log(`  ${p}`);
-  console.log('Recreate them once, elevated: remove the folder, then run test/fixtures-m1/create-symlink-fixtures.ps1 (see its header).');
+  for (const problem of result.problems || []) console.log(`  ${problem}`);
+  console.log('Repair (docs/kenlith-0.12.0/SG6-FIXTURES.md): step A `node test/fixtures-m1/prepare-sg6-fixtures.js` (add --retire if fixtures\\ exists), then step B `create-sg6-links.ps1` in an elevated PowerShell, then this check again.');
   process.exit(1);
 }
-console.log(`symlink fixtures OK: ${manifest.links.length} genuine symbolic links in ${base}`);
+if (requirePersistent && result.mode !== 'persistent') {
+  console.log(`NOT THE PERSISTENT SET: ${result.mode} set in use (${result.source})`);
+  process.exit(2);
+}
+console.log(`symlink fixtures OK: ${result.fixtures.links.length} genuine symbolic links in ${result.base} (${result.mode}; created elevated: ${result.fixtures.createdElevated})`);

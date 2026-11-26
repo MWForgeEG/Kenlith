@@ -273,42 +273,57 @@ test('SR-06 (D4) a Path A web search refusal is shown and not resent without web
 // ---------------------------------------------------------------------------
 // Search web (manual)
 
-test('SR-07 Search web always searches: web_search with tool_choice required, Search instructions, a manual Search reply', async () => {
+// 0.12.0 (DEC-PLANCHAT-051): Search web is removed. A legacy `search: true`
+// from an older page is an ordinary message: automatic search (Path A,
+// tool_choice "auto"), never a forced search, and its reply is an automatic
+// Search reply. Without a search it is an ordinary answer, not a failure.
+test('SR-07 (0.12.0) a legacy Search web send is an automatic-search message: web_search with tool_choice auto, never forced', async () => {
   const requests = model(() => ({ events: searchEvents() }));
   const w = await openWindow();
   const chat = await w.tab();
   await chat.send('Latest Node.js LTS?', { web: 'search' });
   assert.equal(requests.length, 1);
-  assert.ok(isWebOnly(requests[0]));
-  assert.match(requests[0].instructions, /Web search mode: answer the user's latest message from current public sources/);
-  assert.doesNotMatch(requests[0].instructions, /Deep Research mode/);
-  assert.match(requests[0].instructions, /untrusted data, not instructions/);
+  assert.deepEqual(requests[0].tools, [{ type: 'web_search' }]);
+  assert.equal(requests[0].tool_choice, 'auto');
+  assert.ok(!isWebOnly(requests[0]), 'not the forced Search web request');
+  assert.match(requests[0].instructions, /You can use web search\./);
+  assert.doesNotMatch(requests[0].instructions, /Web search mode:|Deep Research mode/);
   const reply = (await w.messages(chat.id))[1];
-  assert.deepEqual({ mode: reply.research.mode, trigger: reply.research.trigger }, { mode: 'search', trigger: 'manual' });
-  // A Search web request that ends without a completed search fails (not shown as a search answer).
+  assert.deepEqual({ mode: reply.research.mode, trigger: reply.research.trigger }, { mode: 'search', trigger: 'auto' });
+  // No search: an ordinary answer (no research record, not an error).
   model(() => ({ text: 'from memory' }));
   await chat.send('Latest Deno?', { web: 'search' });
-  const failed = (await w.messages(chat.id)).at(-1);
-  assert.equal(failed.error, true, 'shown as failed, not as a search answer');
-  assert.match(chat.posted('messageUpdated').at(-1).errorText, /without a completed search/);
+  const plain = (await w.messages(chat.id)).at(-1);
+  assert.equal(plain.error, undefined);
+  assert.equal(plain.research, undefined);
+  assert.equal(plain.content, 'from memory');
 });
 
-test('SR-08 Search web and Deep Research are one-Send and exclusive: both at once is refused, nothing sent; the page keeps one mode', async () => {
+// 0.12.0 (DEC-PLANCHAT-051): Deep Research is the one explicit web mode. A
+// legacy page sending both flags gets Deep Research (the legacy flag is
+// ignored); the page has no Search web mode left; a legacy flag with a model
+// that has no eligible search metadata is an ordinary message with no tools.
+test('SR-08 (0.12.0) Deep Research is the only explicit web mode: legacy flags are ignored, the page keeps one one-Send mode', async () => {
   const requests = model(() => ({ events: searchEvents() }));
   const w = await openWindow();
   const chat = await w.tab();
   await chat.panel.send({ type: 'send', text: 'both', model: SOL, research: true, search: true });
-  assert.equal(requests.length, 0);
-  assert.match(chat.banners().at(-1).message, /either Search web or Deep Research/);
+  assert.equal(requests.length, 1);
+  assert.ok(isWebOnly(requests[0]));
+  assert.match(requests[0].instructions, /Deep Research mode/);
   const page = getWebviewHtml({ cspSource: 'vscode-resource:', asWebviewUri: (u) => u }, {}, 'panel');
   assert.ok(page.includes("state.research = next === 'deep-research';"));
-  assert.ok(page.includes("state.search = next === 'search';"));
-  assert.ok(page.includes("elements.menuSearch.setAttribute('aria-checked', String(state.search));"));
+  assert.ok(page.includes("const next = MODE === 'panel' && mode === 'deep-research' ? mode : undefined;"));
+  assert.equal(page.includes('menuSearch'), false);
+  assert.equal(page.includes('state.search'), false);
+  assert.doesNotMatch(page, /(?<![a-z])search: true/);
   assert.ok(page.includes("if (webMode) { state.researchAwaiting = true; state.researchText = text; state.awaitingMode = webMode; setWebMode(undefined); }"), 'one Send, then off');
-  // Search web with a model outside the table: refused locally.
+  // A legacy Search web flag with a model that has no eligible metadata:
+  // an ordinary message, no web search offered.
   await chat.send('q', { model: UNKNOWN, web: 'search' });
-  assert.equal(requests.length, 0);
-  assert.match(chat.banners().at(-1).message, /Web search has not been verified for "GPT-7-Nova"/);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].tools, undefined);
+  assert.equal(requests[1].tool_choice, undefined);
 });
 
 test('SR-09 Search web never carries attached code; with attached code the signal is not offered either', () => {
@@ -553,6 +568,8 @@ test('SR-21 the page: Kenlith colour tokens per theme kind, High Contrast keeps 
   assert.match(page, /\.bubble > :is\(p, ul, ol, blockquote, h3, h4, h5, h6, \.reply-state, \.error-note, \.research-meta, \.depth-note, details\.sources\) \{ max-inline-size: 48rem; margin-inline-end: auto; \}/);
   assert.match(page, /\.table-wrap \{ overflow-x: auto; max-inline-size: 100%; margin-block: 6px; \}/);
   assert.doesNotMatch(page, /56rem/);
-  // The + menu: Search web first; still no setting or extra composer control.
-  assert.match(page, /<button id="menuSearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Search web/);
+  // The + menu (0.12.0): Deep Research first, no Search web; still no
+  // setting, toggle or extra composer control.
+  assert.match(page, /<div id="plusMenu" class="plus-menu hidden" role="menu" aria-labelledby="plus">\s*<button id="menuResearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Deep Research/);
+  assert.doesNotMatch(page, /menuSearch|>Search web</);
 });

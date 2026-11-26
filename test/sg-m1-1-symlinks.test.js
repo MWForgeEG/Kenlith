@@ -22,20 +22,30 @@
 //
 // The fixtures are used in place and left as found (the swap test renames a
 // spare link into the project and back).
+//
+// Kenlith 0.12.0 (DEC-PLANCHAT-052): the fixtures are found and verified by
+// test/helpers/sg6-fixtures.js: the persistent folder
+// %LOCALAPPDATA%\Kenlith\TestFixtures\SG6\fixtures (prepared by
+// test/fixtures-m1/prepare-sg6-fixtures.js, links by create-sg6-links.ps1,
+// elevated), the PLAN_CHAT_SYMLINK_FIXTURES override, or, until the
+// persistent links exist, the earlier TEMP set as a reported fallback. Every
+// path below is derived from the fixture folder (the helper never takes a
+// path from the manifest), and every write of SG6-F4 passes assertInside().
 
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { readContained, resolveRoot, statContained } = require('../src/workspace-safety');
 const { createCache, retrieve } = require('../src/retrieval');
+const { loadSg6Fixtures } = require('./helpers/sg6-fixtures');
 
-const BASE = process.env.PLAN_CHAT_SYMLINK_FIXTURES || path.join(os.tmpdir(), 'plan-chat-sg-m1-1-symlinks');
-const manifestFile = path.join(BASE, 'manifest.json');
-const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8').replace(/^﻿/, '')) : undefined;
-const NOT_RUN = 'NOT RUN: symbolic-link fixtures are absent (create them once, elevated, with test/fixtures-m1/create-symlink-fixtures.ps1)';
+const LOADED = loadSg6Fixtures();
+// As before: no fixture set at all means NOT RUN (and the gate's check fails
+// on it); a set that exists but is not complete and genuine fails every case.
+const manifest = LOADED.state === 'ok' ? LOADED.fixtures : undefined;
+const NOT_RUN = 'NOT RUN: symbolic-link fixtures are absent (create them: docs/kenlith-0.12.0/SG6-FIXTURES.md, steps A and B)';
 const EXPECTED_LINKS = manifest ? [
   path.join(manifest.project, 'leak.txt'), path.join(manifest.project, 'leakdir'),
   path.join(manifest.spare, 'swap-file-link'), path.join(manifest.spare, 'swap-dir-link')
@@ -91,10 +101,12 @@ const opensOf = (calls) => calls.filter((entry) => entry.call === 'open' || entr
 
 // Every case: the fixtures exist and are still genuine symbolic links.
 function fixtureCheck(t) {
-  if (!manifest) {
-    t.skip(NOT_RUN);
+  t.diagnostic(LOADED.report);
+  if (!manifest && (LOADED.state === 'absent' || LOADED.state === 'prepared')) {
+    t.skip(`${NOT_RUN}; ${LOADED.report}`);
     return false;
   }
+  assert.ok(manifest, `the fixtures are complete and genuine: ${(LOADED.problems || []).join('; ')}`);
   for (const link of EXPECTED_LINKS) {
     assert.equal(isLink(link), true, `${link} is a symbolic link (Node lstat)`);
     assert.equal(linkTypeOf(link), 'SymbolicLink', `${link} is a symbolic link according to Windows`);
@@ -169,12 +181,13 @@ test('SG6-F4 check-then-read swaps: a project file replaced by a genuine file or
   for (const [spareName, kind, expected] of [['swap-file-link', 'file', 'changed'], ['swap-dir-link', 'dir', 'not-file']]) {
     const spare = path.join(manifest.spare, spareName);
     const victim = path.join(manifest.project, `victim-${kind}.txt`);
-    fs.writeFileSync(victim, 'harmless\n');
+    manifest.assertInside(spare);
+    fs.writeFileSync(manifest.assertInside(victim), 'harmless\n');
     let swapped = false;
     try {
       const { result, calls, reads } = await traced(() => readContained(root, `victim-${kind}.txt`, {
         // Renaming an existing link needs no privilege.
-        hooks: { beforeOpen: (candidate) => { fs.unlinkSync(candidate); fs.renameSync(spare, candidate); swapped = true; } }
+        hooks: { beforeOpen: (candidate) => { fs.unlinkSync(manifest.assertInside(candidate)); fs.renameSync(manifest.assertInside(spare), manifest.assertInside(candidate)); swapped = true; } }
       }));
       assert.equal(swapped, true);
       assert.equal(linkTypeOf(victim), 'SymbolicLink', 'the swap put a genuine symbolic link in place');
@@ -184,8 +197,8 @@ test('SG6-F4 check-then-read swaps: a project file replaced by a genuine file or
       t.diagnostic(`${kind} symbolic-link swap: reason ${result.reason}; opened outside: ${opensOf(calls).some((entry) => under(entry.target, manifest.outside))}; reads ${reads.length}`);
     } finally {
       // Leave the fixtures as found (lstat: never follow the link here).
-      if (swapped && isLink(victim)) fs.renameSync(victim, spare);
-      if (!isLink(victim)) fs.rmSync(victim, { force: true });
+      if (swapped && isLink(victim)) fs.renameSync(manifest.assertInside(victim), manifest.assertInside(spare));
+      if (!isLink(victim)) fs.rmSync(manifest.assertInside(victim), { force: true });
     }
   }
   for (const spareName of ['swap-file-link', 'swap-dir-link']) assert.equal(linkTypeOf(path.join(manifest.spare, spareName)), 'SymbolicLink', 'spare link restored');

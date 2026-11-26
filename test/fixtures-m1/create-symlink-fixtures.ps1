@@ -1,5 +1,12 @@
 # SG-M1-1 symbolic-link fixtures (Plan Chat M1).
 #
+# LEGACY (Kenlith 0.12.0, DEC-PLANCHAT-052): this script makes the earlier
+# TEMP set only. New sets go in %LOCALAPPDATA%\Kenlith\TestFixtures\SG6:
+# prepare-sg6-fixtures.js (not elevated), then create-sg6-links.ps1
+# (elevated); see docs/kenlith-0.12.0/SG6-FIXTURES.md. The tests use this
+# TEMP set only as a reported fallback until the persistent links exist.
+# Kept working and unchanged below this note.
+#
 # Creating a symbolic link on Windows needs the "Create symbolic links"
 # privilege (an elevated process) or Developer Mode. This script is the ONLY
 # step that needs it. It creates genuine NTFS symbolic links between synthetic

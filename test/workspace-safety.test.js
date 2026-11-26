@@ -117,6 +117,8 @@ for (const kind of ['file', 'dir']) {
       // Unit runs stay non-elevated. The same refusal is proven with genuine
       // links by SG6-F1/F2 (test/sg-m1-1-symlinks.test.js, fixtures made once,
       // elevated; final gate 2026-11-09) and with a junction in SG4.
+      // Kenlith 0.12.0: those fixtures live in %LOCALAPPDATA%\Kenlith\TestFixtures\SG6
+      // (DEC-PLANCHAT-052; Developer Mode stays off); this skip is unchanged.
       t.skip(`NOT RUN: creating a ${kind} symbolic link failed with ${error.code} (needs Developer Mode or elevation); covered by SG6-F${kind === 'file' ? 1 : 2} with a genuine link and by the junction in SG4`);
       return;
     }

@@ -77,7 +77,12 @@ async function run(engine, context) {
       for (const chunk of text.match(/[\s\S]{1,40}/g)) { if (options.signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' }); options.onDelta(chunk); await sleep(10); }
       return text;
     }
-    if (options.request?.research && process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE) {
+    // 0.12.0 (DEC-PLANCHAT-051): an automatic-search request (Path A) whose
+    // question carries "AUTOSEARCH" is answered by the same recorded stream, as
+    // if the model chose to search; any other automatic request is answered
+    // without a search.
+    const autoSearched = Boolean(options.request?.autoWeb) && asked.includes('AUTOSEARCH');
+    if ((options.request?.research || autoSearched) && process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE) {
       if (options.preflight) await options.preflight();
       const fixture = JSON.parse(fs.readFileSync(process.env.PLAN_CHAT_IT_RESEARCH_FIXTURE, 'utf8'));
       const aborted = () => Object.assign(new Error('aborted'), { name: 'AbortError' });

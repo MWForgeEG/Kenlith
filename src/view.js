@@ -808,11 +808,10 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
           <div id="composerBar" class="actions composer-bar">
             <!-- 0.7.0 RC2 (DEC-PLANCHAT-035): in the editor tab, actions are under + .
                  Only things Kenlith can do; each item posts an existing message. -->
-            <button id="plus" class="icon-button hidden" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="plusMenu" aria-label="Actions: Search web, Deep Research, attach selection, project sharing, project settings" title="Actions">
+            <button id="plus" class="icon-button hidden" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="plusMenu" aria-label="Actions: Deep Research, attach selection, project sharing, project settings" title="Actions">
               <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2v10M2 7h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
             </button>
             <div id="plusMenu" class="plus-menu hidden" role="menu" aria-labelledby="plus">
-              <button id="menuSearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Search web<span class="menu-check" aria-hidden="true">✓</span></span><span class="menu-desc">Search the web for your next message. Sends only your question and this chat, never project files.</span></button>
               <button id="menuResearch" class="menu-item" type="button" role="menuitemcheckbox" aria-checked="false"><span class="menu-label">Deep Research<span class="menu-check" aria-hidden="true">✓</span></span><span class="menu-desc">Search the web and answer with cited sources. Sends only your question and this chat, never project files.</span></button>
               <button id="menuAttach" class="menu-item" type="button" role="menuitem"><span class="menu-label">Attach selection</span><span class="menu-desc">The code selected in the editor. You review it before it is sent.</span></button>
               <button id="menuSharing" class="menu-item" type="button" role="menuitem"><span class="menu-label">Project sharing…</span><span class="menu-desc">See or stop what projects share with OpenAI.</span></button>
@@ -893,8 +892,8 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       menuResearch: document.getElementById('menuResearch'),
       researchRow: document.getElementById('researchRow'),
       researchChip: document.getElementById('researchChip'),
-      // 0.10.0: Search web, the chip's label and hint, and the box it marks.
-      menuSearch: document.getElementById('menuSearch'),
+      // 0.10.0: the chip's label and hint, and the box it marks (0.12.0:
+      // Deep Research only; Search web is gone, DEC-PLANCHAT-051).
       researchChipLabel: document.getElementById('researchChipLabel'),
       researchHint: document.getElementById('researchHint'),
       composerBox: document.getElementById('composerBox'),
@@ -985,28 +984,23 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     function announce(text) { speak(elements.announcer, text); }
     // 0.9.0 Deep Research.
     const DEFAULT_PLACEHOLDER = 'Message ChatGPT…';
-    // 0.10.0: one web mode for the next Send: 'search' (Search web),
-    // 'deep-research', or none. The two exclude each other; one chip shows it.
+    // 0.10.0: the web mode for the next Send. 0.12.0 (DEC-PLANCHAT-051):
+    // 'deep-research' or none; web search is automatic, so there is no
+    // Search web mode and any other value (a legacy 'search') means none.
     function setWebMode(mode, spoken) {
-      const next = MODE === 'panel' && (mode === 'search' || mode === 'deep-research') ? mode : undefined;
-      const before = state.webMode;
+      const next = MODE === 'panel' && mode === 'deep-research' ? mode : undefined;
       state.webMode = next;
       state.research = next === 'deep-research';
-      state.search = next === 'search';
       setHidden(elements.researchRow, !next);
       elements.composerBox.classList.toggle('web-on', Boolean(next));
       elements.menuResearch.setAttribute('aria-checked', String(state.research));
-      elements.menuSearch.setAttribute('aria-checked', String(state.search));
-      elements.researchChipLabel.textContent = next === 'search' ? 'Search web' : 'Deep Research';
-      elements.researchChip.title = next === 'search'
-        ? 'Search web is on: your next message searches the web. Select to turn it off.'
-        : 'Deep Research is on: your next message searches the web and answers with cited sources. Select to turn it off.';
-      elements.researchHint.textContent = next === 'search' ? 'On for your next message. Select to turn Search web off.' : 'On for your next message. Select to turn Deep Research off.';
-      elements.prompt.placeholder = next === 'deep-research' ? 'Ask a research question…' : next === 'search' ? 'Ask a question to search the web…' : DEFAULT_PLACEHOLDER;
+      elements.researchChipLabel.textContent = 'Deep Research';
+      elements.researchChip.title = 'Deep Research is on: your next message searches the web and answers with cited sources. Select to turn it off.';
+      elements.researchHint.textContent = 'On for your next message. Select to turn Deep Research off.';
+      elements.prompt.placeholder = next === 'deep-research' ? 'Ask a research question…' : DEFAULT_PLACEHOLDER;
       if (spoken) {
-        if (next === 'search') announce('Search web on. Your next message searches the web.');
-        else if (next === 'deep-research') announce('Deep Research on. Your next message searches the web and answers with cited sources.');
-        else announce(before === 'search' ? 'Search web off.' : 'Deep Research off.');
+        if (next === 'deep-research') announce('Deep Research on. Your next message searches the web and answers with cited sources.');
+        else announce('Deep Research off.');
       }
     }
     function setResearch(on, spoken) {
@@ -1082,13 +1076,15 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         return;
       }
       elements.prompt.value = question; fitPrompt();
-      // 0.10.0: a Search run comes back with Search web on.
+      // 0.10.0: a Search run comes back for another Send. 0.12.0: with no
+      // mode (automatic search decides again; Search web no longer exists),
+      // whether it was an automatic search or a 0.10.0/0.11.0 Search web run.
       const retried = state.messages.get(messageId);
       if (retried && retried.research && retried.research.mode === 'search') {
-        setWebMode('search');
+        setWebMode(undefined);
         elements.prompt.focus();
         saveDraftSoon();
-        announce('Your question is back in the message box with Search web on. Press Send to search again.');
+        announce('Your question is back in the message box. Press Send to ask again.');
         return;
       }
       setResearch(true);
@@ -2205,8 +2201,6 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     elements.menuSettings.addEventListener('click', fromMenu(() => post('openProjectSettings')));
     // 0.9.0: Deep Research on or off for the next Send; the message box keeps focus.
     elements.menuResearch.addEventListener('click', () => { setMenuOpen(false); setResearch(!state.research, true); elements.prompt.focus(); });
-    // 0.10.0: Search web, one Send; choosing it turns Deep Research off and the reverse.
-    elements.menuSearch.addEventListener('click', () => { setMenuOpen(false); setWebMode(state.search ? undefined : 'search', true); elements.prompt.focus(); });
     elements.researchChip.addEventListener('click', () => { setWebMode(undefined, true); elements.prompt.focus(); });
     elements.attachConfirm.addEventListener('change', () => {
       if (state.attachment) elements.attachApprove.disabled = !elements.attachConfirm.checked;
@@ -2358,13 +2352,7 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
         announce('Deep Research sends only your question and this chat, never attached code. Remove the attached code or turn off Deep Research.');
         return;
       }
-      // 0.10.0: neither does Search web.
-      if (state.search && state.attachment) {
-        announce('Search web sends only your question and this chat, never attached code. Remove the attached code or turn off Search web.');
-        return;
-      }
       const research = state.research;
-      const search = state.search;
       const webMode = state.webMode;
       elements.prompt.value = ''; fitPrompt();
       showError('');
@@ -2374,8 +2362,8 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       // A new id per Send: the extension sends a message once even if this arrives twice.
       // 0.8.0: the Thinking level shown is the level requested (checked again by the host).
       // 0.9.0: Deep Research applies to this Send only, and is sent as true or not at all.
-      // 0.10.0: Search web the same way ("search: true"); never both.
-      post('send', { text, model: elements.models.value, effort: state.reasoning && elements.effort.value ? elements.effort.value : undefined, attachmentId: state.attachment ? state.attachment.id : undefined, sendId: sendIdOf(), draftRev: Date.now(), ...(research ? { research: true } : search ? { search: true } : {}) });
+      // 0.12.0: no "search" field; web search is automatic (DEC-PLANCHAT-051).
+      post('send', { text, model: elements.models.value, effort: state.reasoning && elements.effort.value ? elements.effort.value : undefined, attachmentId: state.attachment ? state.attachment.id : undefined, sendId: sendIdOf(), draftRev: Date.now(), ...(research ? { research: true } : {}) });
       if (webMode) { state.researchAwaiting = true; state.researchText = text; state.awaitingMode = webMode; setWebMode(undefined); }
     }
 

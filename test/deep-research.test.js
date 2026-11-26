@@ -45,8 +45,8 @@ const MODELS = [
 // The live account list of 2026-11-14 (eight listed models, two hidden), plus one unreviewed model.
 const LIVE_MODELS_091 = [
   ['gpt-6.1-sol', 'GPT-6.1-Sol'], ['gpt-6-astra', 'GPT-6-Astra'], ['gpt-6.1-terra', 'GPT-6.1 Terra'], ['gpt-6-sol', 'GPT-6-Sol'],
-  ['gpt-reserve', 'GPT-Reserve', 'hide'], ['gpt-6-luna', 'GPT-6-Luna'], ['gpt-5.6-sol', 'GPT-5.6-Sol'], ['gpt-5.6-terra', 'GPT-5.6-Terra'],
-  ['gpt-5.6-luna', 'GPT-5.6-Luna'], ['codex-auto-review', 'Codex Auto Review', 'hide'], [UNKNOWN, 'GPT-7-Nova']
+  ['hidden-model-a', 'Hidden Model A', 'hide'], ['gpt-6-luna', 'GPT-6-Luna'], ['gpt-5.6-sol', 'GPT-5.6-Sol'], ['gpt-5.6-terra', 'GPT-5.6-Terra'],
+  ['gpt-5.6-luna', 'GPT-5.6-Luna'], ['hidden-model-b', 'Hidden Model B', 'hide'], [UNKNOWN, 'GPT-7-Nova']
 ].map(([slug, name, visibility = 'list']) => ({ slug, display_name: name, visibility }));
 const KEYS_080 = ['input', 'instructions', 'model', 'store', 'stream'];
 // 0.10.0 Path A: a general-chat request to a verified model also offers hosted web search, tool_choice auto.
@@ -173,14 +173,20 @@ async function waitFor(predicate, what, ms = 8000) {
 // ---------------------------------------------------------------------------
 // Policy and request shape
 
-test('DR-01 policy (0.9.1): exactly the eight verified models run Deep Research; it adds web_search and tool_choice required', () => {
-  assert.deepEqual(Object.keys(research.RESEARCH_MODELS), VERIFIED_090_1);
+// 0.12.0 (DEC-PLANCHAT-054): the eight 0.9.1 models plus the two GPT-6.2
+// models verified by live stage F; each entry keeps its own evidence.
+test('DR-01 policy (0.9.1, 0.12.0): exactly the verified models run Deep Research; it adds web_search and tool_choice required', () => {
+  assert.deepEqual(Object.keys(research.RESEARCH_MODELS), [...VERIFIED_090_1, 'gpt-6.2-sol', 'gpt-6.2-astra']);
   for (const id of VERIFIED_090_1) {
     assert.equal(research.supportsResearch(id), true, id);
     assert.match(research.RESEARCH_MODELS[id], /official model page lists Responses API web_search; live ChatGPT-plan route check passed 2026-11-14/, id);
   }
+  for (const id of ['gpt-6.2-sol', 'gpt-6.2-astra']) {
+    assert.equal(research.supportsResearch(id), true, id);
+    assert.match(research.RESEARCH_MODELS[id], /official model page lists Responses API web_search; live ChatGPT-plan route stage F passed 2026-11-26 \(DEC-PLANCHAT-054\)/, id);
+  }
   // Not inferred from /v1/models: hidden or unreviewed slugs, dated snapshots, future IDs.
-  for (const other of [UNKNOWN, 'gpt-6-astra-2026-11-01', 'gpt-5.6-sol-mini', 'GPT-6.1-SOL', ' gpt-6-sol', 'gpt-reserve', 'codex-auto-review', 'gpt-5.5', '', undefined, null, 7]) assert.equal(research.supportsResearch(other), false, String(other));
+  for (const other of [UNKNOWN, 'gpt-6-astra-2026-11-01', 'gpt-5.6-sol-mini', 'GPT-6.1-SOL', ' gpt-6-sol', 'hidden-model-a', 'hidden-model-b', 'gpt-5.5', '', undefined, null, 7]) assert.equal(research.supportsResearch(other), false, String(other));
   assert.deepEqual(research.WEB_SEARCH_TOOL, { type: 'web_search' });
   assert.equal(research.TOOL_CHOICE, 'required');
   // RC2: no replacement-model offer and no model ordering of any kind.
@@ -693,8 +699,10 @@ test('DR-24 the page: one + item, a compact chip that turns it off, a one-shot r
   const bar = /<div id="composerBar"[^>]*>([\s\S]*?)<div id="effortNote"/.exec(page)[1];
   assert.doesNotMatch(bar, /researchChip/);
   for (const id of ['plus', 'modelSlot', 'stop', 'send']) assert.match(bar, new RegExp(`id="${id}"`));
-  // Send carries research (or, 0.10.0, search) only as true, only when on, never both; then it turns off.
-  assert.match(page, /\.\.\.\(research \? \{ research: true \} : search \? \{ search: true \} : \{\}\)/);
+  // Send carries research only as true, only when on; then it turns off.
+  // 0.12.0 (DEC-PLANCHAT-051): never a search flag (Search web is gone).
+  assert.match(page, /\.\.\.\(research \? \{ research: true \} : \{\}\)/);
+  assert.doesNotMatch(page, /(?<![a-z])search: true/);
   // A refused Send turns its mode back on, only for that same text, into an empty box; the wait always ends.
   assert.match(page, /if \(state\.researchAwaiting && message\.text === state\.researchText && !elements\.prompt\.value\) setWebMode\(state\.awaitingMode \|\| 'deep-research'\);\s*state\.researchAwaiting = false;/);
   assert.match(page, /if \(webMode\) \{ state\.researchAwaiting = true; state\.researchText = text; state\.awaitingMode = webMode; setWebMode\(undefined\); \}/);
@@ -948,6 +956,7 @@ test('DR-35 no Astra-only wording and no model offer remain in what the user see
   // Astra appears in src only as a table key (the Deep Research and Thinking tables).
   for (const file of fs.readdirSync(path.join(__dirname, '..', 'src'))) {
     const lines = fs.readFileSync(path.join(__dirname, '..', 'src', file), 'utf8').split('\n').filter((line) => /astra\b/i.test(line));
-    for (const line of lines) assert.match(line, /^\s*'gpt-6-astra': /, `${file}: ${line.trim()}`);
+    // 0.12.0 (DEC-PLANCHAT-054): gpt-6.2-astra is a verified-table key too.
+    for (const line of lines) assert.match(line, /^\s*'gpt-6(?:\.2)?-astra': /, `${file}: ${line.trim()}`);
   }
 });

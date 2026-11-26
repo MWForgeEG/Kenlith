@@ -25,7 +25,7 @@ const { reasoningField } = require('./reasoning');
 const { checkRecord } = require('./capabilities');
 // 0.9.0: Deep Research (src/research.js). A research request offers the
 // hosted web_search tool only, never a local tool, excerpt or attachment.
-const { RESEARCH_INSTRUCTIONS, ROUTING_POLICY, SEARCH_INSTRUCTIONS, SIGNAL_TOOL, TOOL_CHOICE, WEB_AUTO_POLICY, WEB_MODES, WEB_SEARCH_TOOL, supportsResearch } = require('./research');
+const { RESEARCH_INSTRUCTIONS, ROUTING_POLICY, SEARCH_INSTRUCTIONS, SIGNAL_TOOL, TOOL_CHOICE, WEB_AUTO_POLICY, WEB_MODES, WEB_SEARCH_TOOL } = require('./research');
 // 0.10.0: text that may reach a web search must not change under redaction.
 const { redactSecrets } = require('./util');
 // 0.7.0 (DEC-PLANCHAT-030 to 032). The rules are enforced by Kenlith; this
@@ -89,21 +89,31 @@ function composeProjectTurn(text, excerpts) {
 // nothing redaction would change), so it offers hosted web_search with
 // tool_choice "auto". Path B: anything else offers the internal signal
 // (src/research.js SIGNAL_TOOL), never hosted search. Neither with attached
-// code in this turn or for a model outside RESEARCH_MODELS.
+// code in this turn or for a model whose capability record does not offer
+// web search (0.12.0, DEC-PLANCHAT-050; before: outside RESEARCH_MODELS).
 //
 // 0.11.0 (DEC-PLANCHAT-048): `capability` is required: the capability record
 // the window's model catalog issued for this exact model (src/capabilities.js),
 // still current, allowing this level (Default included). Without it nothing is
 // built. The record goes with the request (and every continuation of it) and
 // is checked again by the service just before the request leaves.
-function buildRequest({ instructions, history, text, attachment, excerpts = [], noProjectFiles = false, tools, model, effort, research = false, web, autoSearch = false, capability }) {
+//
+// 0.12.0 (DEC-PLANCHAT-050): web search and Deep Research are read from the
+// same record (`capability.search.offered`, `capability.research.allowed`),
+// not from a model table here. `noWeb` (DEC-PLANCHAT-051): the user's message
+// asks not to use the internet (src/web-intent.js): neither hosted search nor
+// the signal is offered, so no continuation of this request can search
+// either; a web request with it throws.
+function buildRequest({ instructions, history, text, attachment, excerpts = [], noProjectFiles = false, tools, model, effort, research = false, web, autoSearch = false, noWeb = false, capability }) {
   const reasoning = reasoningField(model, effort, capability);
   checkRecord(capability, model, reasoning ? reasoning.effort : 'default');
   const mode = web !== undefined ? web : research ? 'deep-research' : undefined;
   if (mode !== undefined && !WEB_MODES.includes(mode)) throw new Error('Unknown web request. Nothing was sent.');
   const label = mode === 'search' ? 'Web search' : 'Deep Research';
   if (mode) {
-    if (!supportsResearch(model)) throw new Error(`${label} is not available for this model. Nothing was sent.`);
+    if (noWeb === true) throw new Error(`${label} was not sent: your message asks not to use the internet. Nothing was sent.`);
+    const allowed = mode === 'search' ? capability.search?.offered === true : capability.research?.allowed === true;
+    if (!allowed) throw new Error(`${label} is not available for this model. Nothing was sent.`);
     if (attachment || excerpts.length || (Array.isArray(tools) && tools.length) || noProjectFiles) {
       throw new Error(`${label} sends only your question and this chat's text, never project files or attached code. Nothing was sent.`);
     }
@@ -133,7 +143,8 @@ function buildRequest({ instructions, history, text, attachment, excerpts = [], 
   const toolPolicy = [PROJECT_TOOLS_POLICY, proposes ? PROPOSAL_POLICY : '', runs ? `${COMMAND_POLICY}${proposes ? ' To change files, propose edits with project_propose_edit.' : ''}` : ''].filter(Boolean).join('\n\n');
   const historyGate = history.some((message) => message.projectDerived === true);
   // 0.10.0 automatic search: Path A or Path B, decided from this request.
-  const canSearch = !mode && autoSearch === true && supportsResearch(model) && !attachment;
+  // 0.12.0: eligibility from the capability record; never with `noWeb`.
+  const canSearch = !mode && autoSearch === true && noWeb !== true && capability.search?.offered === true && !attachment;
   const webSafe = canSearch && !offered && !excerpts.length && !historyGate
     && !history.some((message) => message.attachmentReply === true)
     && redactSecrets(String(text)) === String(text)
@@ -192,6 +203,8 @@ function buildRequest({ instructions, history, text, attachment, excerpts = [], 
         autoWeb,
         // 0.10.0 Path B: the internal signal (never with hosted search).
         signal,
+        // 0.12.0: the no-internet instruction this request was built with.
+        noWeb: noWeb === true,
         continuation: Object.freeze([])
       });
     } catch (error) {
