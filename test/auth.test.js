@@ -12,8 +12,14 @@ const {
   tokenResponse
 } = require('./helpers/fake-openai');
 const { AuthService, CREDENTIALS_KEY } = require('../src/auth');
-const { OpenAIService } = require('../src/openai');
-const { buildRequest } = require('../src/request-builder');
+// 0.11.0 (DEC-PLANCHAT-048): requests need a capability record; these wrappers add
+// a genuine one from the real resolver (test/helpers/capability.js).
+const { boundBuilder, boundService, capabilityReady } = require('./helpers/capability');
+require('node:test').before(() => capabilityReady);
+const { OpenAIService: RawOpenAIService } = require('../src/openai');
+const OpenAIService = boundService(RawOpenAIService);
+const { buildRequest: buildRawRequest } = require('../src/request-builder');
+const buildRequest = boundBuilder(buildRawRequest);
 
 let server;
 test.beforeEach(() => {

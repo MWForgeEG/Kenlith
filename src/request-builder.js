@@ -22,6 +22,7 @@ const { RUN_TOOL } = require('./exec-request');
 // 0.8.0 (DEC-PLANCHAT-040): the reasoning field comes from the capability
 // policy only; nothing from the view reaches the request body.
 const { reasoningField } = require('./reasoning');
+const { checkRecord } = require('./capabilities');
 // 0.9.0: Deep Research (src/research.js). A research request offers the
 // hosted web_search tool only, never a local tool, excerpt or attachment.
 const { RESEARCH_INSTRUCTIONS, ROUTING_POLICY, SEARCH_INSTRUCTIONS, SIGNAL_TOOL, TOOL_CHOICE, WEB_AUTO_POLICY, WEB_MODES, WEB_SEARCH_TOOL, supportsResearch } = require('./research');
@@ -89,8 +90,15 @@ function composeProjectTurn(text, excerpts) {
 // tool_choice "auto". Path B: anything else offers the internal signal
 // (src/research.js SIGNAL_TOOL), never hosted search. Neither with attached
 // code in this turn or for a model outside RESEARCH_MODELS.
-function buildRequest({ instructions, history, text, attachment, excerpts = [], noProjectFiles = false, tools, model, effort, research = false, web, autoSearch = false }) {
-  const reasoning = reasoningField(model, effort);
+//
+// 0.11.0 (DEC-PLANCHAT-048): `capability` is required: the capability record
+// the window's model catalog issued for this exact model (src/capabilities.js),
+// still current, allowing this level (Default included). Without it nothing is
+// built. The record goes with the request (and every continuation of it) and
+// is checked again by the service just before the request leaves.
+function buildRequest({ instructions, history, text, attachment, excerpts = [], noProjectFiles = false, tools, model, effort, research = false, web, autoSearch = false, capability }) {
+  const reasoning = reasoningField(model, effort, capability);
+  checkRecord(capability, model, reasoning ? reasoning.effort : 'default');
   const mode = web !== undefined ? web : research ? 'deep-research' : undefined;
   if (mode !== undefined && !WEB_MODES.includes(mode)) throw new Error('Unknown web request. Nothing was sent.');
   const label = mode === 'search' ? 'Web search' : 'Deep Research';
@@ -174,6 +182,8 @@ function buildRequest({ instructions, history, text, attachment, excerpts = [], 
         // effort chosen at Send. `reasoningModel`: the model it was checked for.
         reasoning,
         reasoningModel: reasoning ? model : undefined,
+        // 0.11.0: the capability record this request was checked against.
+        capability,
         // 0.9.0: the hosted tool and tool choice of a Deep Research request,
         // and the model they were checked for. Not `tools` (project tools).
         // 0.10.0: `mode` 'search' or 'deep-research'.

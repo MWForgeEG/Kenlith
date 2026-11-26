@@ -155,8 +155,22 @@ const MEASURE = `(() => {
   const header = vis(d.querySelector('.header'));
   const cs = (e) => w.getComputedStyle(e);
   const send = d.getElementById('send'); const plus = d.getElementById('plus'); const prompt = d.getElementById('prompt');
+  // 0.11.0 layout: + then Model and Thinking on the start side, Send at the end; a faint line above the controls.
+  const bar = d.getElementById('composerBar'); const barBox = vis(bar); const promptBox = vis(prompt);
+  const effortBox = vis(d.getElementById('effort')); const line = w.getComputedStyle(bar, '::before');
+  const rtl = cs(bar).direction === 'rtl'; const start = (x) => rtl ? -x.r : x.l; const end = (x) => rtl ? -x.l : x.r;
+  const c = controls; const layout = c.plus && c.models && effortBox && c.send && box ? {
+    plusToModel: Math.round(start(c.models) - end(c.plus)), modelBeforeThinking: end(c.models) <= start(effortBox) + 0.5,
+    thinkingToSend: Math.round(start(c.send) - end(effortBox)), sendToBoxEnd: Math.round((rtl ? c.send.l - box.l : box.r - c.send.r)),
+    plusFromBoxStart: Math.round((rtl ? box.r - c.plus.r : c.plus.l - box.l)), rtl
+  } : null;
+  const lineTop = barBox ? barBox.t : null;
+  const divider = { content: line.content, height: line.height, position: line.position, bg: line.backgroundColor,
+    width: barBox ? Math.round(barBox.w - 20) : null, belowPrompt: Boolean(promptBox && barBox && lineTop >= promptBox.b - 1),
+    aboveControls: Boolean(barBox && c.plus && c.send && lineTop <= Math.min(c.plus.t, c.send.t)) };
   return {
     vw, overflowX: d.documentElement.scrollWidth - vw, box, controls, overlaps, clipped,
+    layout, divider,
     promptH: vis(prompt) ? vis(prompt).h : null, barH: vis(d.getElementById('composerBar')) ? vis(d.getElementById('composerBar')).h : null,
     modelInComposer: Boolean(models.closest('#composerBar')), modelText: models.selectedOptions[0] ? models.selectedOptions[0].textContent : null, modelTitle: models.title,
     modelTextFits: models.scrollWidth <= models.clientWidth + 2 || cs(models).textOverflow === 'ellipsis',
@@ -169,6 +183,7 @@ const MEASURE = `(() => {
       sendFg: cs(send).color, sendBg: cs(send).backgroundColor, sendBorder: cs(send).borderTopColor,
       plusFg: cs(plus).color, plusBorder: cs(plus).borderTopColor,
       modelFg: cs(models).color, promptFg: cs(prompt).color,
+      dividerBg: line.backgroundColor,
       chipFg: chip ? cs(chip.querySelector('.project-text')).color : null, chipStateFg: chip ? cs(chip.querySelector('.project-state')).color : null, chipBg: chip ? cs(chip).backgroundColor : null
     }
   };
@@ -186,6 +201,7 @@ function colorChecks(tag, m) {
     modelText: ratio(over(c.modelFg, box), box),
     promptText: ratio(over(c.promptFg, box), box),
     boxEdge: ratio(over(c.boxBorder, page), page),
+    divider: c.dividerBg && c.dividerBg.a > 0 ? ratio(over(c.dividerBg, box), box) : 0,
     chipState: c.chipStateFg ? ratio(over(c.chipStateFg, c.chipBg && c.chipBg.a > 0 ? over(c.chipBg, page) : page), c.chipBg && c.chipBg.a > 0 ? over(c.chipBg, page) : page) : null,
     chipText: c.chipFg ? ratio(over(c.chipFg, c.chipBg && c.chipBg.a > 0 ? over(c.chipBg, page) : page), c.chipBg && c.chipBg.a > 0 ? over(c.chipBg, page) : page) : null
   };
@@ -245,9 +261,14 @@ async function main() {
       const m = await inChat(v, MEASURE);
       const name = `${tag}: "${v.title}" (${m.vw}px)`;
       check(`${name}: composer compact (box ≤ 120px tall empty, header ≤ 48px), no overlap, nothing clipped, no sideways scroll`, m.box && m.box.h <= 120 && m.headerHeight <= 48 && !m.overlaps.length && !m.clipped.length && m.overflowX <= 0, { box: m.box && [m.box.w, m.box.h], prompt: m.promptH, bar: m.barH, header: m.headerHeight, overlaps: m.overlaps, clipped: m.clipped, overflowX: m.overflowX });
-      check(`${name}: model selector in the composer beside Send (its tooltip names the model), + shown, Attach Selection under +`, m.modelInComposer && Boolean(m.controls.models && m.controls.send && m.controls.plus) && !m.attachShown && Boolean(m.modelText) && m.modelTitle === 'Model: ' + m.modelText, { inComposer: m.modelInComposer, attachShown: m.attachShown, model: m.modelText, controls: Object.keys(m.controls) });
+      check(`${name}: model selector in the composer (its tooltip names the model), + shown, Attach Selection under +`, m.modelInComposer && Boolean(m.controls.models && m.controls.send && m.controls.plus) && !m.attachShown && Boolean(m.modelText) && m.modelTitle === 'Model: ' + m.modelText, { inComposer: m.modelInComposer, attachShown: m.attachShown, model: m.modelText, controls: Object.keys(m.controls) });
       check(`${name}: project state shown compactly ("demo-project · not shared")`, m.chip === 'demo-project · not shared' && /Nothing from it is sent until you allow it/.test(m.chipTitle || ''), { chip: m.chip });
       const colors = colorChecks(tag, m);
+      // 0.11.0 composer layout (provisionally accepted): + then Model, Thinking; Send last at the end; a faint 1px line
+      // between the message and the controls (High Contrast: the theme border, 3:1 or more; other themes: visible, quieter than the box edge).
+      const hc = /^hc-/.test(tag);
+      check(`${name}: 0.11.0 layout: + at the start, Model right after it, then Thinking; Send last, at the end of the box`, Boolean(m.layout) && m.layout.plusFromBoxStart <= 12 && m.layout.plusToModel >= 0 && m.layout.plusToModel <= 10 && m.layout.modelBeforeThinking && m.layout.thinkingToSend >= 0 && m.layout.sendToBoxEnd <= 12, m.layout);
+      check(`${name}: 0.11.0 divider: one 1px line under the message, above the controls, across the box; faint but visible (${hc ? '≥ 3:1' : '≥ 1.3:1 and below the box edge'})`, m.divider.content === '""' && m.divider.height === '1px' && m.divider.position === 'absolute' && m.divider.belowPrompt && m.divider.aboveControls && m.divider.width > 0 && (hc ? colors.divider >= 3 : colors.divider >= 1.3 && colors.divider < colors.boxEdge), { ...m.divider, ratio: colors.divider, boxEdge: colors.boxEdge });
       check(`${name}: contrast (Send icon, + icon ≥ 3:1; model, message text ≥ 4.5:1; box edge ≥ 3:1; project text ≥ 4.5:1)`, colors.ok, colors);
       v.web.close();
     }

@@ -26,7 +26,14 @@ if (!executable || !fs.existsSync(executable)) {
 const evidence = evidenceArg || path.join(__dirname, '..', '..', 'docs', 'release-evidence', 'kenlith-0.8.0', 'thinking-ui', label);
 fs.mkdirSync(evidence, { recursive: true });
 const PORT = 9373;
-const MODELS = [{ id: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' }, { id: 'gpt-7-preview', name: 'GPT-7 Preview' }];
+// 0.11.0 (DEC-PLANCHAT-048): plus a model without an approved rule whose entry
+// lists levels (the server's /v1/models fields, synthetic, including the
+// unrecognized "ultra"), resolved by the packaged capability resolver.
+const MODELS = [
+  { id: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' },
+  { id: 'gpt-7-preview', name: 'GPT-7 Preview' },
+  { id: 'gpt-6.2-sol', name: 'GPT-6.2-Sol', supported_reasoning_levels: [{ effort: 'low' }, { effort: 'medium' }, { effort: 'high' }, { effort: 'xhigh' }, { effort: 'max' }, { effort: 'ultra' }], supports_reasoning_effort_updates: true }
+];
 const results = [];
 const check = (name, ok, detail) => {
   results.push({ name, ok: Boolean(ok), detail });
@@ -243,12 +250,20 @@ async function main() {
   await choose(a, 'models', 'gpt-7-preview');
   await sleep(800);
   const unknown = await inChat(a, MEASURE);
-  check('a model without a documented level: only Default, the note "This model uses its default thinking level."; the chat keeps its saved level',
-    JSON.stringify(unknown.options) === '["default"]' && unknown.text === 'Default' && unknown.note === 'This model uses its default thinking level.' && !unknown.overlaps.length && unknown.overflowX <= 0,
+  // 0.11.0 (correction 6): the note names the saved level that is not available.
+  check('a model without a documented level: only Default, the note "High isn\'t available for this model. Your next message uses Default."; the chat keeps its saved level',
+    JSON.stringify(unknown.options) === '["default"]' && unknown.text === 'Default' && unknown.note === "High isn't available for this model. Your next message uses Default." && !unknown.overlaps.length && unknown.overflowX <= 0,
     { options: unknown.options, text: unknown.text, note: unknown.note });
   await screenshot(page, 'dark-unknown-model.png');
   stored = await cmd({ state: true, wait: 600 });
   check('…the saved level is unchanged by the model switch', stored.chats?.a?.reasoningEffort === 'high', stored.chats?.a);
+  // 0.11.0: a model whose entry lists levels (advertised): Default to Max, never Ultra; the saved High applies.
+  await choose(a, 'models', 'gpt-6.2-sol');
+  await sleep(800);
+  const advertised = await inChat(a, MEASURE);
+  check('a model whose model-list entry lists levels: Default to Max, never Ultra; the saved High applies, no note',
+    advertised.value === 'high' && JSON.stringify(advertised.options) === JSON.stringify(['default', 'low', 'medium', 'high', 'xhigh', 'max']) && advertised.note === '' && !advertised.optionTexts.some((t) => /ultra/i.test(t)) && !advertised.overlaps.length && advertised.overflowX <= 0,
+    { value: advertised.value, options: advertised.optionTexts, note: advertised.note });
   await choose(a, 'models', 'gpt-6.1-sol');
   await sleep(800);
   const back = await inChat(a, MEASURE);

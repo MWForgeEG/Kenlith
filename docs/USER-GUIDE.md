@@ -1,6 +1,6 @@
 # Kenlith user guide
 
-This guide covers Kenlith 0.10.0. For installation, see the
+This guide covers Kenlith 0.11.0. For installation, see the
 [README](../README.md#installation).
 
 - [What is sent, and what is not](#what-is-sent-and-what-is-not)
@@ -85,12 +85,9 @@ This guide covers Kenlith 0.10.0. For installation, see the
   shared**, **shared** or **files off**. The tab title is the chat title. The
   editor tab shows the coloured Signal Rings icon: two rings with an open
   centre on a rimmed Deep Forest tile.
-- **At the bottom**, the composer holds everything for writing:
-  - the message box;
-  - **+**;
-  - the model;
-  - **Thinking**;
-  - **Send** (↑).
+- **At the bottom**, the composer holds everything for writing: the message
+  box, then, below a faint line, **+**, the model and **Thinking** at the
+  start and **Send** (↑) at the end (0.11.0).
 
   **Enter** sends, **Shift+Enter** adds a line, and **Stop** appears while a
   reply arrives.
@@ -133,11 +130,26 @@ How it works:
   was sent with.
 - Higher levels can take longer and use more of your plan. They do not always
   give a better answer.
-- Kenlith offers levels only for models in its built-in table: GPT-6.1-Sol,
-  GPT-6-Astra, GPT-6.1 Terra, GPT-6-Sol and GPT-6-Luna. The table follows
-  OpenAI's model documentation; live testing covered GPT-6.1-Sol only. Any
-  other model offers only **Default** and says *This model uses its default
-  thinking level.*
+- Which levels a model offers:
+  - **Reviewed models** (GPT-6.1-Sol, GPT-6-Astra, GPT-6.1 Terra, GPT-6-Sol
+    and GPT-6-Luna) offer the levels in Kenlith's built-in table, which
+    follows OpenAI's model documentation. If your account's model list gives
+    fewer, only the levels both allow are offered.
+  - **Newer models** without a reviewed rule, such as GPT-6.2-Sol and
+    GPT-6.2-Astra, offer the levels your ChatGPT account's model list
+    advertises for them (0.11.0). Kenlith checks the list first; Ultra and
+    unknown values are never offered.
+  - **The GPT-5.6 models**, and any model with no usable levels, offer only
+    **Default**.
+- **Tested versus offered.** Tested live with a level other than Default:
+  GPT-6.2-Sol High and GPT-6.2-Astra Max (0.11.0), GPT-6.1-Sol High (0.8.0)
+  and GPT-6-Astra High (0.9.0). Every other level is offered because OpenAI
+  documents it or your model list advertises it, not because Kenlith tested
+  it. The advertised levels can change without a Kenlith update.
+- If a chat's saved level isn't available for the model you choose, the
+  composer says so before you send, for example *High isn't available for
+  this model. Your next message uses Default.* The saved level comes back
+  with a model that has it.
 - If OpenAI refuses a level, the reply shows the status and request ID.
   Kenlith offers **Use Default** and does not resend on its own.
 - Kenlith never shows the model's internal reasoning.
@@ -154,7 +166,9 @@ section) is for deeper research and synthesis.
   question needs current or niche public information, such as news, prices,
   schedules, releases or weather. If it does, the reply shows *Searching the
   web…* and the answer comes from the web. A timeless question gets an
-  ordinary answer. There is no setting.
+  ordinary answer. There is no setting. Automatic search runs only with the
+  eight models listed under Deep Research; GPT-6.2-Sol and GPT-6.2-Astra
+  answer without web search in 0.11.0.
 - **In a project chat**, the model first tells Kenlith that it needs the
   web. The search then runs as a separate request that carries only your
   question and the chat's text.
@@ -195,7 +209,8 @@ and answers with a structured report with citations.
   the model. Deep Research runs with the models verified for it:
   GPT-6-Astra, GPT-6.1-Sol, GPT-6.1 Terra, GPT-6-Sol, GPT-6-Luna,
   GPT-5.6-Sol, GPT-5.6-Terra and GPT-5.6-Luna. With any other model,
-  including a new model your account starts to list, nothing is sent: your
+  including GPT-6.2-Sol, GPT-6.2-Astra and a new model your account starts
+  to list, nothing is sent: your
   model, your message and Deep Research stay as they were, and a note asks
   you to choose a supported model in the Model selector.
 - If OpenAI refuses web search for a supported model, for example because of
@@ -473,13 +488,16 @@ Sign-in tokens are kept separately, in the editor's secure `SecretStorage`.
 - **Secret detection** covers known formats and the values of your secret
   files, including common encodings. It cannot detect every transformed or
   reworded secret.
-- **Thinking levels** come from a static, built-in model table.
+- **Thinking levels** for newer models come from your account's model list
+  and are mostly untested (see [Thinking](#thinking)); they can change
+  without a Kenlith update.
 - **Markdown in replies** is a subset (with tables from 0.10.0).
 - **Web search** is the model's judgment; **Search web** forces it. Project
   and web questions are not combined. There is no device location (name the
   place for local information) and no image results. Not every web answer
   has citations.
-- **Deep Research** runs only with the eight verified models; a new model is
+- **Deep Research, Search web and automatic search** run only with the eight
+  verified models; a new model, including GPT-6.2-Sol and GPT-6.2-Astra, is
   not supported until Kenlith has reviewed it. It runs in the foreground:
   closing the editor ends a run.
 - **Arabic paragraphs that begin with a Latin word** may be laid out left to

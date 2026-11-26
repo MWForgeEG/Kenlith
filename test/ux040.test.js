@@ -577,7 +577,9 @@ test('UX-06 review #7 a restored tab of another context cannot change the chat b
   const { createWebviewPanel } = require('./helpers/fake-vscode');
   const panel = createWebviewPanel('planChat.conversation', 'x', {}, {});
   await calls.serializers.get('planChat.conversation').deserializeWebviewPanel(panel, { chatId: chat.id });
-  w.engine.models = [{ id: 'gpt-beta', name: 'Beta' }];
+  // 0.11.0: the model list comes only from the catalog (the fake service lists gpt-beta).
+  await w.engine.ensureModels();
+  assert.ok(w.engine.models.some((model) => model.id === 'gpt-beta'));
   await panel.send({ type: 'selectModel', model: 'gpt-beta' });
   await panel.send({ type: 'draft', text: 'should not be kept' });
   const stored = await conversation(w.store, chat.id);

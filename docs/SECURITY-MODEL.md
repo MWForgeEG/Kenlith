@@ -1,7 +1,7 @@
 # Kenlith security model
 
 This page explains what Kenlith protects, where its trust boundaries are, and
-which risks remain. It describes Kenlith 0.10.0. For how to report a
+which risks remain. It describes Kenlith 0.11.0. For how to report a
 vulnerability, see [SECURITY.md](../SECURITY.md).
 
 ## What Kenlith protects
@@ -151,6 +151,27 @@ every request in a tool loop. It:
 - A completed research answer is ordinary chat history afterwards. In later
   messages it passes through the same sharing, read, command, secret and
   output boundaries as any other reply.
+
+## Model list and Thinking levels (0.11.0)
+
+- The account's model list (`/v1/models`) is server data, not
+  instructions. Kenlith keeps only a few fields from it (the model's name,
+  visibility and its advertised reasoning levels with one flag), validates
+  them, and bounds them to the five levels it knows: `low`, `medium`,
+  `high`, `xhigh` and `max`. Any other value, including `ultra`, is
+  never offered or sent.
+- The list is kept in memory for the current sign-in only. Nothing from it is
+  stored on disk.
+- Reviewed rules and restrictions rank above the list: the list can narrow
+  the levels of a reviewed model, never widen them, and the GPT-5.6 models
+  stay at Default.
+- Every request carries a capability record from this window's current list.
+  Kenlith checks it when the request is built and again just before it is
+  sent; a request built under an earlier sign-in or for another model is
+  refused locally. A level OpenAI refuses is not retried, and the model and
+  level are not changed.
+- The model list does not enable web search: Search web, automatic search
+  and Deep Research still use the built-in table described above.
 
 ## Sign-in
 

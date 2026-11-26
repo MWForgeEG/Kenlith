@@ -546,7 +546,7 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       padding: 10px 12px 4px;
     }
     body[data-mode="panel"] .composer-box textarea:focus { outline: none; }
-    body[data-mode="panel"] .composer-bar { align-items: center; flex-wrap: wrap; gap: 6px; padding: 4px 8px 8px; }
+    body[data-mode="panel"] .composer-bar { align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 8px 8px; }
     body[data-mode="panel"] .composer-model {
       flex: 0 1 auto;
       min-width: 0;
@@ -630,6 +630,15 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
     body[data-mode="panel"] .composer-box:hover { border-color: var(--kl-edge-hover); }
     body[data-mode="panel"] .composer-box.web-on { border-color: var(--kl-active); }
     body[data-mode="panel"] .composer-box:focus-within { border-color: var(--kl-focus); box-shadow: 0 0 0 1px var(--kl-focus); }
+    /* 0.11.0: a faint line between the message and the controls under it,
+       mixed from the box edge; High Contrast keeps the theme's border. */
+    body[data-mode="panel"] .composer-bar::before {
+      content: ""; position: absolute; inset-block-start: 0; inset-inline: 10px;
+      block-size: 1px; pointer-events: none;
+      background: color-mix(in srgb, var(--kl-edge) 45%, transparent);
+    }
+    body.vscode-high-contrast[data-mode="panel"] .composer-bar::before,
+    body.vscode-high-contrast-light[data-mode="panel"] .composer-bar::before { background: var(--kl-edge); }
     /* 0.10.0: the activity indicator, two Signal Rings; the outer one pulses.
        Reduced motion stops it (the global rule above); both rings stay. */
     .kl-activity { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: var(--vscode-descriptionForeground); min-height: 16px; }
@@ -810,8 +819,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
               <button id="menuSettings" class="menu-item" type="button" role="menuitem"><span class="menu-label">Project context settings…</span><span class="menu-desc">Turn project files, tools, proposed changes or commands on or off.</span></button>
             </div>
             <button id="attach" class="secondary" type="button" title="Attach the code selected in the editor. You review it before anything is sent.">Attach Selection</button>
-            <span class="bar-spacer"></span>
             <span id="modelSlot" class="model-slot"></span>
+            <!-- 0.11.0: Model and Thinking sit beside +, Send stays at the end. -->
+            <span class="bar-spacer"></span>
             <button id="stop" class="secondary hidden" aria-label="Stop response">Stop</button>
             <button id="send" aria-label="Send" title="Send (Enter)"><span class="send-text">Send</span><svg class="send-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 12V2.5M3 6.5L7 2.5l4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>
@@ -1893,7 +1903,9 @@ function getWebviewHtml(webview, { mode = 'view' } = {}) {
       if (!info) return;
       const options = (info.byModel && info.byModel[model]) || ['default'];
       const effective = options.includes(info.choice) ? info.choice : 'default';
-      renderEffort({ ...info, options, effective, note: effective !== info.choice ? info.fallbackNote : '' });
+      // 0.11.0: the saved level is named ("High isn't available for this model…").
+      const named = info.unavailableNotes && info.unavailableNotes[info.choice];
+      renderEffort({ ...info, options, effective, note: effective !== info.choice ? (named || info.fallbackNote) : '' });
     }
     function effortDefaultButton() {
       const button = document.createElement('button');

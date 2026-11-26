@@ -11,9 +11,15 @@ const path = require('node:path');
 const test = require('node:test');
 const { calls, config, createContext, createEditor, createTextDocument, createWebviewView, makeTempDir, setActiveEditor, setActiveTextEditor, setWorkspaceFolders, vscode } = require('./helpers/fake-vscode');
 const { ConsentStore } = require('../src/consent');
-const { OpenAIService } = require('../src/openai');
+// 0.11.0 (DEC-PLANCHAT-048): requests need a capability record; these wrappers add
+// a genuine one from the real resolver (test/helpers/capability.js).
+const { boundBuilder, boundService, capabilityReady } = require('./helpers/capability');
+require('node:test').before(() => capabilityReady);
+const { OpenAIService: RawOpenAIService } = require('../src/openai');
+const OpenAIService = boundService(RawOpenAIService);
 const { mayReplay } = require('../src/provenance');
-const { buildRequest, isBuiltRequest } = require('../src/request-builder');
+const { buildRequest: buildRawRequest, isBuiltRequest } = require('../src/request-builder');
+const buildRequest = boundBuilder(buildRawRequest);
 const { tokenize } = require('../src/retrieval');
 const { userProjectContextEnabled } = require('../src/settings');
 const { ConversationStore } = require('../src/store');

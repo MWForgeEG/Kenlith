@@ -1,6 +1,7 @@
 'use strict';
 
 const { isBuiltRequest, withoutTools } = require('./request-builder');
+const { checkRecord, pickCapabilityFields } = require('./capabilities');
 const { parseSse } = require('./sse');
 const { RequestError, errorCode, parseBody } = require('./util');
 
@@ -32,22 +33,42 @@ function describeFailure({ status, code, message, requestId }) {
 }
 
 class OpenAIService {
+  // 0.11.0: the model catalog of the window this service sends for
+  // (src/capabilities.js). Bound by the engine; without it nothing is sent.
+  #catalog = undefined;
+
   constructor(authService) {
     this.authService = authService;
   }
 
-  async listModels(signal) {
+  useCatalog(catalog) {
+    this.#catalog = catalog;
+  }
+
+  // 0.11.0 (DEC-PLANCHAT-048): every entry of the account's model list, reduced
+  // at once to the fields the capability resolver reads (src/capabilities.js
+  // pickCapabilityFields); validation and visibility are decided there. One
+  // request, the same one 0.10.0 made; nothing else of the list is kept.
+  async listModelCatalog(signal) {
+    return (await this.#fetchModelEntries(signal)).map(pickCapabilityFields);
+  }
+
+  async #fetchModelEntries(signal) {
     const token = await this.authService.getAccessToken();
     const response = await fetch(`${API_BASE}/models`, {
       headers: { authorization: `Bearer ${token}` },
       signal
     });
     const body = await readJsonResponse(response);
-    const candidates = Array.isArray(body.models)
+    return Array.isArray(body.models)
       ? body.models
       : Array.isArray(body.data)
         ? body.data
         : [];
+  }
+
+  async listModels(signal) {
+    const candidates = await this.#fetchModelEntries(signal);
 
     const visible = candidates
       .filter((model) => !model.visibility || model.visibility === 'list')
@@ -146,6 +167,14 @@ class OpenAIService {
     }
     if (request.requiresGate && !preflight) {
       throw new Error('Project context needs its last permission check before sending. Nothing was sent.');
+    }
+    // 0.11.0 (DEC-PLANCHAT-048): the capability record again, after the
+    // request's own checks and before the access token is read or anything
+    // leaves: issued for this model by this window's own catalog, the session
+    // and model list unchanged since, and the level still allowed.
+    checkRecord(request.capability, model, request.reasoning ? request.reasoning.effort : 'default');
+    if (!this.#catalog || !this.#catalog.isCurrent(request.capability)) {
+      throw new Error('The model capabilities were not checked for this window\'s ChatGPT session. Nothing was sent.');
     }
     const { messages, instructions } = request;
     const token = await this.authService.getAccessToken();

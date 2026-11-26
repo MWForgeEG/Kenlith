@@ -14,9 +14,15 @@ const { createContext } = require('./helpers/fake-vscode');
 const { CLIENT_ID, FakeOpenAI, completedStream, storedCredentials } = require('./helpers/fake-openai');
 const { loadOldStore } = require('./helpers/old-release');
 const { AuthService, CREDENTIALS_KEY } = require('../src/auth');
-const { OpenAIService } = require('../src/openai');
+// 0.11.0 (DEC-PLANCHAT-048): requests need a capability record; these wrappers add
+// a genuine one from the real resolver (test/helpers/capability.js).
+const { boundBuilder, boundService, capabilityReady } = require('./helpers/capability');
+require('node:test').before(() => capabilityReady);
+const { OpenAIService: RawOpenAIService } = require('../src/openai');
+const OpenAIService = boundService(RawOpenAIService);
 const { classify, contextUsedRecord, mayReplay } = require('../src/provenance');
-const { PROJECT_HEADER, buildRequest, isBuiltRequest } = require('../src/request-builder');
+const { PROJECT_HEADER, buildRequest: buildRawRequest, isBuiltRequest } = require('../src/request-builder');
+const buildRequest = boundBuilder(buildRawRequest);
 const { REQUEST_BUDGET, composeWithinBudget } = require('../src/budget');
 const { ConversationStore } = require('../src/store');
 

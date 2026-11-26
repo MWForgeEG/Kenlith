@@ -12,7 +12,12 @@ const test = require('node:test');
 const { calls, createContext, createWebviewView } = require('./helpers/fake-vscode');
 const { CLIENT_ID, FakeOpenAI, completedStream, json, sse, storedCredentials } = require('./helpers/fake-openai');
 const { AuthService, CREDENTIALS_KEY } = require('../src/auth');
-const { OpenAIService } = require('../src/openai');
+// 0.11.0 (DEC-PLANCHAT-048): requests need a capability record; these wrappers add
+// a genuine one from the real resolver (test/helpers/capability.js).
+const { boundBuilder, boundService, capabilityReady } = require('./helpers/capability');
+require('node:test').before(() => capabilityReady);
+const { OpenAIService: RawOpenAIService } = require('../src/openai');
+const OpenAIService = boundService(RawOpenAIService);
 const { ConversationStore } = require('../src/store');
 const { ChatViewProvider } = require('../src/view');
 const siwc = require('../src/siwc');
@@ -99,7 +104,7 @@ test('M1-0 b. the plan label applies only to a session with ChatGPT plan usage',
 test('M1-0 c. the usage-limit message names Manage usage, claims no reset time and keeps the diagnostics', async () => {
   const { auth } = await activate();
   server.responsesHandler = () => json(429, { error: { code: USAGE_LIMIT, message: 'Usage limit reached' } }, { 'x-request-id': 'req_synthetic' });
-  const error = await new OpenAIService(auth).streamResponse({ model: 'gpt-alpha', request: require('../src/request-builder').buildRequest({ instructions: 'i', history: [], text: 'q' }), onDelta() {} })
+  const error = await new OpenAIService(auth).streamResponse({ model: 'gpt-alpha', request: boundBuilder(require('../src/request-builder').buildRequest)({ instructions: 'i', history: [], text: 'q', model: 'gpt-alpha' }), onDelta() {} })
     .then(() => undefined, (failed) => failed);
   assert.equal(error.code, USAGE_LIMIT);
   assert.equal(error.status, 429);

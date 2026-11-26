@@ -12,13 +12,19 @@ const path = require('node:path');
 const test = require('node:test');
 const { calls, config, createContext, makeTempDir, setActiveTextEditor, setWorkspaceFolders, vscode } = require('./helpers/fake-vscode');
 const { FakeOpenAI, completedStream, json, sse } = require('./helpers/fake-openai');
-const { OpenAIService } = require('../src/openai');
+// 0.11.0 (DEC-PLANCHAT-048): requests need a capability record; these wrappers add
+// a genuine one from the real resolver (test/helpers/capability.js).
+const { boundBuilder, boundService, capabilityReady } = require('./helpers/capability');
+require('node:test').before(() => capabilityReady);
+const { OpenAIService: RawOpenAIService } = require('../src/openai');
+const OpenAIService = boundService(RawOpenAIService);
 const { ConversationStore } = require('../src/store');
 const { ChatEngine } = require('../src/engine');
 const { ChatPanels } = require('../src/panels');
 const { ExecutionStore } = require('../src/exec-store');
 const { ExecutionService } = require('../src/exec-service');
-const { buildRequest, buildToolContinuation, withoutTools } = require('../src/request-builder');
+const { buildRequest: buildRawRequest, buildToolContinuation, withoutTools } = require('../src/request-builder');
+const buildRequest = boundBuilder(buildRawRequest);
 const reasoning = require('../src/reasoning');
 const { getWebviewHtml } = require('../src/view');
 
@@ -170,7 +176,8 @@ test('TE-P2 precedence: the chat choice, then the user setting, then the model d
   assert.equal(r('ultra', 'high').choice, 'high');
   assert.equal(r({ effort: 'max' }, 'nonsense').choice, 'default');
   // A model that does not accept the choice: Default, with the note.
-  assert.deepEqual({ ...r('high', undefined, NEW) }, { choice: 'high', source: 'chat', effective: 'default', note: reasoning.FALLBACK_NOTE });
+  // 0.11.0 (correction 6): the note names the saved level that is not available.
+  assert.deepEqual({ ...r('high', undefined, NEW) }, { choice: 'high', source: 'chat', effective: 'default', note: "High isn't available for this model. Your next message uses Default." });
   assert.equal(reasoning.FALLBACK_NOTE, 'This model uses its default thinking level.');
 });
 
@@ -363,7 +370,8 @@ test('TE-14 TE-15 a model without a documented level: Default with a short note;
   await chat.selectModel(NEW);
   const shown = chat.shown();
   assert.deepEqual(shown.options, ['default']);
-  assert.deepEqual([shown.choice, shown.effective, shown.note], ['xhigh', 'default', 'This model uses its default thinking level.']);
+  // 0.11.0 (correction 6): the note names the saved level that is not available.
+  assert.deepEqual([shown.choice, shown.effective, shown.note], ['xhigh', 'default', "Extra High isn't available for this model. Your next message uses Default."]);
   assert.equal((await w.store.getConversation(chat.id)).reasoningEffort, 'xhigh', 'the saved choice is not changed');
   // The view's byModel lets it update at once; it matches the host.
   assert.deepEqual(shown.byModel[NEW], ['default']);

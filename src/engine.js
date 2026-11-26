@@ -41,7 +41,14 @@ const { ProjectContext, tagFor } = require('./project');
 const { affectsSetting, userCommandsEnabled, userInstructions, userMaxHistoryMessages, userMaxSelectionCharacters, userProjectContextEnabled, userProjectToolsEnabled, userProposalsEnabled, userReasoningDefaultEffort } = require('./settings');
 // 0.8.0 (DEC-PLANCHAT-040): Thinking effort. Which model accepts which effort
 // is decided in src/reasoning.js only.
-const { LABELS: EFFORT_LABELS, effortRejection, effortView, isEffort, isSupported } = require('./reasoning');
+const { LABELS: EFFORT_LABELS, effortRejection, effortView, isEffort } = require('./reasoning');
+// 0.11.0 (DEC-PLANCHAT-048): the window's model catalog and capability records.
+const { ModelCatalog, StaleCatalogError } = require('./capabilities');
+// The account a catalog belongs to; the same key as the 0.4.0 session check.
+// With the auth service's session epoch (raised at each sign-in, before the
+// new credentials are stored, and at each sign-out; not by a token refresh), so
+// a catalog belongs to one session of one account.
+const catalogKeyOf = (session, authService) => (session ? `${session.subject || ''}|${session.email || ''}|${Number(authService?.sessionEpoch) || 0}` : '');
 // 0.9.0: Deep Research (src/research.js, src/citations.js).
 const researchPolicy = require('./research');
 const { ResearchModelError, researchRejection, supportsResearch } = require('./research');
@@ -193,7 +200,12 @@ class ChatEngine {
     // 0.5.0: local project awareness, selection and the read-only tools
     // (src/project-context.js). It shares the retrieval cache.
     this.projectContext = options.projectContext || new ProjectContextService({ getWindowContext: () => this.windowContext, workspace: editorWorkspace(vscode), cache: this.#retrievalCache, withheldValues: (root, settings) => indexFor(root, settings).readValues || [] });
-    this.models = [];
+    // 0.11.0: the account's models and their capabilities, in memory only,
+    // per session generation (src/capabilities.js). `this.models` reads it.
+    this.catalog = new ModelCatalog();
+    // The service sends only requests whose capability record this catalog
+    // issued (src/openai.js); test doubles without the method are unaffected.
+    if (typeof openAIService?.useCatalog === 'function') openAIService.useCatalog(this.catalog);
     // The pending code attachment (stage 3, §4.2): host memory of this window
     // only. { snapshot (frozen, holds the text), approved, credentialConfirmed,
     // changed, conversationId, signature }. The webview gets a display copy and
@@ -725,7 +737,11 @@ class ChatEngine {
       signedIn = true;
       // A new sign-in ends a usage pause (documented in the README).
       await this.context.globalState.update(USAGE_PAUSE_KEY, undefined);
-      this.models = [];
+      // 0.11.0: the new sign-in has a new session epoch, so its catalog key
+      // differs from anything loaded before (a late answer from before is
+      // discarded, even for the same account). Not invalidated here: the load
+      // the credentials-change event may already have started for this new
+      // session is joined, not repeated.
       await this.#hydrate();
     });
     this.#changed();
@@ -784,7 +800,7 @@ class ChatEngine {
     this.stop();
     await this.#runBusy('Signing out…', async () => {
       const result = await this.authService.signOut();
-      this.models = [];
+      this.catalog.invalidate();
       this.#dropAttachment();
       await this.#hydrate();
       if (!result.remoteRevoked) {
@@ -817,7 +833,10 @@ class ChatEngine {
     this.stop();
     this.#discardConsent(session ? 'The ChatGPT account changed, so nothing was sent.' : 'You were signed out, so nothing was sent.');
     this.#dropAttachment();
-    this.models = [];
+    // 0.11.0: dropped only for another account than the one cached or being
+    // loaded; right after a sign-in in this window the hydration below joins
+    // the load already running (no second /v1/models request).
+    this.catalog.noteAccount(catalogKeyOf(session, this.authService));
     await this.#hydrate().catch(() => undefined);
     this.#changed();
     return true;
@@ -1544,7 +1563,7 @@ class ChatEngine {
     }
     if (error?.reauthRequired) {
       // Credentials are gone or unusable: show the sign-in state, keep the error visible.
-      this.models = [];
+      this.catalog.invalidate();
       await this.#hydrate().catch(() => undefined);
       this.#postTo(surfaces || [...this.#surfaces], { type: 'error', message: safeError(error) });
     }
@@ -1565,14 +1584,20 @@ class ChatEngine {
     let modelError;
     let modelErrorAction;
 
-    if (session && !this.models.length) {
+    // 0.11.0: always through the catalog, which answers from its cache when it
+    // holds this session's list (no request) and never serves another one's.
+    if (session) {
       try {
-        this.models = await this.openAIService.listModels();
+        await this.#loadModels(session);
       } catch (error) {
-        modelError = safeError(error);
-        modelErrorAction = usageAction(error);
-        if (error?.reauthRequired) {
-          session = await this.authService.getSession();
+        // A load from an older session generation: the newer one shows its
+        // own result; nothing from this one is used or reported.
+        if (!(error instanceof StaleCatalogError)) {
+          modelError = safeError(error);
+          modelErrorAction = usageAction(error);
+          if (error?.reauthRequired) {
+            session = await this.authService.getSession();
+          }
         }
       }
     }
@@ -1648,7 +1673,22 @@ class ChatEngine {
   // model: the chat's choice, else kenlith.reasoning.defaultEffort, checked
   // against the model (src/reasoning.js).
   #reasoningInfo(conversation, model) {
-    return effortView({ chatEffort: conversation?.reasoningEffort, userDefault: userReasoningDefaultEffort(), model, models: this.models });
+    return effortView({ chatEffort: conversation?.reasoningEffort, userDefault: userReasoningDefaultEffort(), model, models: this.models, catalog: this.catalog });
+  }
+
+  // 0.11.0: the models the window may offer: [{ id, name }] of the current
+  // session's catalog (src/capabilities.js).
+  get models() {
+    return this.catalog.models;
+  }
+
+  // The one way the model list is loaded: single-flight per account and
+  // session generation; the response is reduced to the capability fields at
+  // once. A service without listModelCatalog (test doubles) gives { id, name }
+  // entries, which carry no capability metadata.
+  #loadModels(session) {
+    const service = this.openAIService;
+    return this.catalog.load(catalogKeyOf(session, this.authService), () => (typeof service.listModelCatalog === 'function' ? service.listModelCatalog() : service.listModels()));
   }
 
   // The model a surface's next Send uses, as hydrate shows it.
@@ -1691,11 +1731,9 @@ class ChatEngine {
   }
 
   async ensureModels() {
-    if (this.models.length) return this.models;
     const session = await this.authService.getSession().catch(() => undefined);
     if (!session) return [];
-    this.models = await this.openAIService.listModels();
-    return this.models;
+    return this.#loadModels(session);
   }
 
   // Unsent text of a chat's composer, saved for restarts (src/drafts.js).
@@ -2332,14 +2370,22 @@ class ChatEngine {
       throw new UsagePausedError();
     }
 
-    if (!this.models.length) {
-      this.models = await this.openAIService.listModels();
+    // 0.11.0: the catalog of this session's account (cached, or the one load
+    // already running; another account's catalog is never used).
+    try {
+      await this.#loadModels(session);
+    } catch (error) {
+      if (error instanceof StaleCatalogError) throw new Error('The ChatGPT session changed while this message was prepared. Nothing was sent.');
+      throw error;
     }
     // The model shown in the dropdown when Send was pressed is the model we request.
     const selectedModel = typeof requestedModel === 'string' && requestedModel
       ? requestedModel
       : this.context.globalState.get(SELECTED_MODEL_KEY) || this.models[0]?.id;
-    if (!selectedModel || !this.models.some((model) => model.id === selectedModel)) {
+    // 0.11.0: availability and Thinking levels come from one capability record,
+    // checked again by the builder and by the service just before sending.
+    const capability = this.catalog.resolve(selectedModel);
+    if (!selectedModel || !capability.available) {
       throw new Error(`The model "${selectedModel || 'none'}" is not available for this ChatGPT account. Choose another model.`);
     }
     await this.context.globalState.update(SELECTED_MODEL_KEY, selectedModel);
@@ -2359,7 +2405,7 @@ class ChatEngine {
     // page), the chat's level. One the model does not accept is refused here,
     // before any project work or consent card; nothing is sent.
     const effort = requestedEffort === undefined ? this.#reasoningInfo(conversation, selectedModel).effective : requestedEffort;
-    if (!isSupported(selectedModel, effort)) {
+    if (!isEffort(effort) || !capability.efforts.includes(effort)) {
       await this.#postReasoning([surface], selectedModel).catch(() => undefined);
       throw new Error(`The thinking level "${EFFORT_LABELS[effort]}" is not available for this model. Choose Default or another level. Nothing was sent.`);
     }
@@ -2391,7 +2437,9 @@ class ChatEngine {
       return undefined;
     }
     if (plan.consentNeeded) {
-      return { consentNeeded: plan.consentNeeded, conversation };
+      // 0.11.0: the card holds the model and level resolved now; they are
+      // checked again, unchanged, when the card is answered.
+      return { consentNeeded: plan.consentNeeded, conversation, selectedModel, effort };
     }
     // History before the new message is stored; the limit counts the new one.
     // Replies to attached code are left out unless included (§5.1a); replies
@@ -2417,6 +2465,8 @@ class ChatEngine {
       // 0.8.0: checked again there against the model (src/reasoning.js).
       model: selectedModel,
       effort,
+      // 0.11.0: the capability record of this model now (required).
+      capability,
       // 0.10.0: the web mode, or automatic search for an ordinary message.
       web: research || undefined,
       autoSearch: !research
@@ -2463,7 +2513,7 @@ class ChatEngine {
     if (controller.signal.aborted) {
       return undefined;
     }
-    return { selectedModel, conversationId, conversation, instructions, request, attachment, project, webHistory, effort };
+    return { selectedModel, conversationId, conversation, instructions, request, attachment, project, webHistory, effort, capability };
   }
 
   // A code block's Copy button: the text arrives exactly as rendered from the
@@ -2550,7 +2600,9 @@ class ChatEngine {
       // decision, held by the card. Its draft is marked submitted first, so
       // no refresh offers it back to the composer (D-1).
       await this.drafts.markSubmitted(conversationId, prepared.conversation.context, rawText, sendRev).catch(() => undefined);
-      this.#showConsent({ ...prepared.consentNeeded, text, rawText, model: requestedModel, effort: requestedEffort, sendId, sendRev });
+      // 0.11.0: the model and level resolved at this first Send (not what the
+      // page shows later); the answer to the card prepares them again.
+      this.#showConsent({ ...prepared.consentNeeded, text, rawText, model: prepared.selectedModel, effort: prepared.effort, sendId, sendRev });
       stream.accepted = true;
       return;
     }
@@ -2839,7 +2891,9 @@ class ChatEngine {
         await this.store.removeMessage(conversationId, assistantMessage.id);
         this.#postChat(conversationId, { type: 'messageRemoved', messageId: assistantMessage.id });
         if (controller.signal.aborted) return;
-        const searchRequest = buildRequest({ instructions: userInstructions(), history: webHistory || [], text: redactSecrets(text), model: selectedModel, effort, web: 'search' });
+        // 0.11.0: the same capability record as the routing request (checked
+        // again by the builder and the service: still this session's catalog).
+        const searchRequest = buildRequest({ instructions: userInstructions(), history: webHistory || [], text: redactSecrets(text), model: selectedModel, effort, web: 'search', capability: request.capability });
         const none = { note: '', userDetails: {}, replyDetails: {} };
         await this.#streamReply({ stream, text, controller, selectedModel, conversationId, request: searchRequest, attachment: undefined, project: none, lease, webHistory, effort, userMessage, outcome, trigger: 'auto' });
         return;
@@ -2919,7 +2973,7 @@ class ChatEngine {
         const effortLabel = request.reasoning ? EFFORT_LABELS[request.reasoning.effort] : undefined;
         const webRequest = Boolean(request.research || request.autoWeb);
         const researchRefused = webRequest && !usageAction(error) ? researchRejection(error, { effortLabel, mode: webMode || 'search' }) : undefined;
-        const rejected = researchRefused || (!usageAction(error) && request.reasoning ? effortRejection(error, request.reasoning.effort, { tools: Boolean(request.tools) }) : undefined);
+        const rejected = researchRefused || (!usageAction(error) && request.reasoning ? effortRejection(error, request.reasoning.effort, { tools: Boolean(request.tools), tier: request.capability?.tier }) : undefined);
         const message = rejected ? `${rejected} ${safeError(error)}` : safeError(error);
         const display = content || `Request failed: ${message}`;
         // Project context that never passed the last check was not sent.

@@ -5,6 +5,45 @@ kept for reference; the release packages of versions before 0.8.0 are not
 published in this repository. Entries before 0.4.1 use the earlier setting
 names (`planChat.*`); the settings are now `kenlith.*`.
 
+## 0.11.0 (2026-11-26)
+
+**Summary.** Thinking levels for newer ChatGPT models without waiting for a
+Kenlith release, and a tidier message box. Search web, Deep Research, project
+sharing and your chats work as before.
+
+- **Thinking levels for newer models.** For a model Kenlith has no reviewed
+  rule for, such as GPT-6.2-Sol and GPT-6.2-Astra, the Thinking menu offers
+  the levels your ChatGPT account's model list gives for it: Low, Medium,
+  High, Extra High and Max. Kenlith checks that list first and never offers
+  Ultra or an unknown value. **Default** still sends no level.
+- **Tested live in this release:** GPT-6.2-Sol with **High** and GPT-6.2-Astra
+  with **Max** (one request each, accepted by OpenAI). The other levels of
+  these two models come from the model list only and have not been tested by
+  Kenlith.
+- **Reviewed models keep their levels.** If your account's list gives fewer,
+  only the levels both allow are offered. The GPT-5.6 models still offer only
+  **Default**.
+- **Saved levels are kept.** If a chat's level isn't available for the chosen
+  model, the message box says so before you send (*High isn't available for
+  this model. Your next message uses Default.*). The saved level comes back
+  with a model that has it.
+- **A refused level is not retried**, and the model and level are not
+  changed. For a level that came from the model list, the message says it
+  was listed for your account but not accepted.
+- **Every request is checked against your current model list**, before it is
+  built and again just before it is sent; a request held by the sharing card
+  is checked again after your answer.
+- **One model-list request after sign-in** instead of two.
+- **Message box.** The model and **Thinking** now sit right after **+**, and
+  **Send** stays at the end. A faint line separates what you type from the
+  controls. The controls, keys and Tab order are unchanged.
+- **Not available:** GPT-6.2-Sol and GPT-6.2-Astra have no Search web, no
+  Deep Research and no automatic web search in 0.11.0. Those stay with the
+  eight models listed in the README.
+- Not changed: sign-in, project sharing, privacy, chat storage, Review Before
+  Apply, commands, Search web, automatic search and Deep Research.
+- Tested on Windows 11 with VS Code 1.148 and Antigravity IDE 1.107.
+
 ## 0.10.0 (2026-11-15)
 
 **Summary.** Web access feels natural: normal chat searches the web by itself

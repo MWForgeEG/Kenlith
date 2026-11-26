@@ -4,7 +4,7 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.10.x (current stable) | Yes |
+| 0.11.x (current stable) | Yes |
 | Earlier versions | No. Please upgrade to the latest release. |
 
 ## Reporting a vulnerability

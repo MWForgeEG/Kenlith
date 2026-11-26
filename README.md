@@ -29,7 +29,7 @@ allowed are sent. Every file change is shown to you
 before it is applied, and commands that could change anything wait for your
 approval.
 
-![Kenlith 0.10.0: an Arabic chat in an editor tab with a web answer that carries inline citations, the footer "Searched the web · 7 sources" and a Sources list. The + menu is open with Search web, Deep Research, Attach selection, Project sharing and Project context settings; the composer shows GPT-6.1-Sol and Thinking High.](docs/assets/kenlith-0.10.0-editor.png)
+![Kenlith 0.11.0: a chat in an editor tab. Below a faint line, the message box shows + then the model GPT-6.2-Sol and Thinking at the start, and Send at the end. The Thinking menu is open with Default, Low, Medium, High, Extra High and Max; High is selected.](docs/assets/kenlith-0.11.0-editor.png)
 
 > Kenlith is an independent open-source project. It is not affiliated with or
 > endorsed by OpenAI, Microsoft, Google, Anthropic, or the VS Code project.
@@ -66,7 +66,11 @@ approval.
   [limitations](#current-limitations)).
 - **Model selection** per chat.
 - **Thinking Effort** per chat: **Default**, **Low**, **Medium**, **High**,
-  **Extra High** or **Max**. Default lets the model use its own level.
+  **Extra High** or **Max**. Default lets the model use its own level. For
+  newer models such as GPT-6.2-Sol and GPT-6.2-Astra, Kenlith offers the
+  levels your ChatGPT account's model list gives (checked first; never Ultra
+  or an unknown value). See [limitations](#current-limitations) for which
+  combinations have been tested.
 - **Automatic web search.** When a question needs current or niche public
   information, the model searches the web with OpenAI's hosted web search
   and answers from it, with citations and a **Sources** list when OpenAI
@@ -128,10 +132,10 @@ From a terminal:
 
 ```shell
 # VS Code
-code --install-extension kenlith-antigravity-0.10.0.vsix
+code --install-extension kenlith-antigravity-0.11.0.vsix
 
 # Antigravity IDE
-antigravity-ide --install-extension kenlith-antigravity-0.10.0.vsix
+antigravity-ide --install-extension kenlith-antigravity-0.11.0.vsix
 ```
 
 The same `.vsix` works in both editors; `antigravity` in the file name and the
@@ -205,7 +209,7 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Current limitations
 
-- **Platform.** Tested on Windows 11 with VS Code 1.143 and Antigravity
+- **Platform.** Tested on Windows 11 with VS Code 1.148 and Antigravity
   IDE 1.107. Linux, macOS and remote windows (SSH, WSL, containers) have not
   been verified.
 - **Detached processes.** **Stop** and the time limit end a command and the
@@ -214,16 +218,25 @@ To report a vulnerability, see [SECURITY.md](SECURITY.md).
 - **Secret detection has limits.** Kenlith removes known credential formats
   and values from your secret files, including common encodings. It cannot
   detect every transformed or reworded secret.
-- **Thinking levels come from a static table.** Kenlith offers Thinking
-  levels only for models in its built-in list, which follows OpenAI's model
-  documentation. Other models offer Default only. Thinking Effort has been
-  verified live on `gpt-6.1-sol` only.
+- **Many Thinking levels are offered but not tested.** For models in its
+  built-in list (which follows OpenAI's model documentation), Kenlith offers
+  the documented levels. For a newer model, such as `gpt-6.2-sol` and
+  `gpt-6.2-astra`, it offers the levels your account's model list
+  advertises, after checking them; Ultra and unknown values are never
+  offered. The GPT-5.6 models offer Default only, and a model with no usable
+  levels offers Default only. Tested live with a level other than Default:
+  `gpt-6.2-sol` High and `gpt-6.2-astra` Max (0.11.0), `gpt-6.1-sol` High
+  (0.8.0), `gpt-6-astra` High (0.9.0). Every other
+  level is offered on the strength of OpenAI's documentation or your model
+  list, not a Kenlith test. The advertised levels can change without a
+  Kenlith update. If OpenAI refuses a level, the reply says so; nothing is
+  retried and the model and level are not changed.
 - **Web search and Deep Research run only with verified models.** These are
   `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`, `gpt-6-luna`,
   `gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna`. With any other model,
-  including new models your account starts to list, chat works without web
-  search, and Search web or Deep Research sends nothing and asks you to
-  choose a supported model.
+  including `gpt-6.2-sol`, `gpt-6.2-astra` and new models your account
+  starts to list, chat works without automatic web search, and Search web
+  or Deep Research sends nothing and asks you to choose a supported model.
 - **Deep Research runs in the foreground.** Closing the editor ends a run;
   the reply is kept as interrupted and offers **Retry**. There is no
   background research.

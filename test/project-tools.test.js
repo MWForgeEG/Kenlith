@@ -13,7 +13,12 @@ const test = require('node:test');
 const { TOOL_DEFINITIONS, TOOL_LIMITS, TOOL_NAMES, ToolTurn, checkToolPath, relativeInside, validateCall } = require('../src/project-tools');
 const { ProjectContextService } = require('../src/project-context');
 const { createCache } = require('../src/retrieval');
-const { buildRequest, buildToolContinuation, isBuiltRequest, withoutTools } = require('../src/request-builder');
+// 0.11.0 (DEC-PLANCHAT-048): requests need a capability record; these wrappers add
+// a genuine one from the real resolver (test/helpers/capability.js).
+const { boundBuilder, boundService, capabilityReady } = require('./helpers/capability');
+require('node:test').before(() => capabilityReady);
+const { buildRequest: buildRawRequest, buildToolContinuation, isBuiltRequest, withoutTools } = require('../src/request-builder');
+const buildRequest = boundBuilder(buildRawRequest);
 
 const MARKER = 'OUTSIDE_SECRET_7f3a';
 const SECRET = 'sk-proj-' + 'A'.repeat(48);

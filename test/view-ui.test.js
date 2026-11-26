@@ -187,7 +187,7 @@ test('navigation: no brand line, no second New Chat, no email in the header', ()
   assert.equal(manifest.contributes.viewsContainers.activitybar[0].title, 'Kenlith');
   assert.deepEqual(manifest.contributes.views.planChat.map((view) => [view.id, view.name]), [['planChat.account', 'Account'], ['planChat.sidebar', 'Chats']]);
   assert.equal(manifest.contributes.views.planChat.some((view) => view.type === 'webview'), false, 'the side bar has no chat webview');
-  assert.equal(manifest.version, '0.10.0'); // Kenlith 0.10.0
+  assert.equal(manifest.version, '0.11.0'); // Kenlith 0.11.0
 });
 
 test('history: the Quick Pick lists every chat by id and switches to the chosen one', async () => {
@@ -337,4 +337,15 @@ test('history: relative times, with the full date on the second line', async () 
 test('account: Escape anywhere in the page closes an open Account panel', () => {
   const page = getWebviewHtml({ cspSource: 'vscode-resource:' });
   assert.match(page, /document\.addEventListener\('keydown', \(event\) => \{\s*if \(event\.key === 'Escape' && !elements\.accountPanel\.classList\.contains\('hidden'\)\) \{\s*event\.preventDefault\(\);\s*setAccountOpen\(false, true\);/);
+});
+
+test('0.11.0 composer footer: + then Model and Thinking on the start side, Send at the end, a faint divider above the controls', () => {
+  const page = getWebviewHtml({ cspSource: 'vscode-resource:', asWebviewUri: (u) => u }, {}, 'panel');
+  const bar = /<div id="composerBar"[^>]*>([\s\S]*?)<div id="effortNote"/.exec(page)[1];
+  const at = (needle) => bar.indexOf(needle);
+  assert.ok(at('id="plus"') >= 0 && at('id="plus"') < at('id="modelSlot"'));
+  assert.ok(at('id="modelSlot"') < at('class="bar-spacer"'));
+  assert.ok(at('class="bar-spacer"') < at('id="stop"') && at('id="stop"') < at('id="send"'));
+  assert.match(page, /body\[data-mode="panel"\] \.composer-bar::before \{[^}]*inset-block-start: 0;[^}]*block-size: 1px;[^}]*pointer-events: none;[^}]*color-mix\(in srgb, var\(--kl-edge\) 45%, transparent\);/);
+  assert.match(page, /body\.vscode-high-contrast\[data-mode="panel"\] \.composer-bar::before,\s*body\.vscode-high-contrast-light\[data-mode="panel"\] \.composer-bar::before \{ background: var\(--kl-edge\); \}/);
 });

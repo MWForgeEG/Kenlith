@@ -76,6 +76,11 @@ The public copy differs from the private source in a few test files only:
   credential-shaped literal is stored. Keep this pattern when you sync test
   changes, and use it for new tests.
 
+- **Synthetic model names.** In `test/capability-resolver.test.js` the two
+  hidden entries of the hand-written model-list shape use synthetic slugs
+  (`hidden-model-a`, `hidden-model-b`). Their visibility, levels and flags,
+  and every assertion, are unchanged.
+
 When a private test file changes, re-apply these adaptations to the public
 copy instead of overwriting it.
 
